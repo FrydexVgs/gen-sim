@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GEN-SIM PRO · Simulador Grupo Electrógeno</title>
+<link rel="stylesheet" href="simulador.css">
+</head>
+<body>
+  
+<div class="hdr">
+  <div class="hdr-brand">
+    <div class="hdr-logo">⚡</div>
+    <div>
+      <div class="hdr-title">GEN·SIM PRO</div>
+      <div class="hdr-sub">Simulador · Grupo Electrógeno Diesel 250 kVA</div>
+    </div>
+  </div>
+  <div class="hdr-stats">
+    <div class="stat-chip chip-off" id="chip-cl">CHECKLIST: 0/11</div>
+    <div class="stat-chip chip-off" id="chip-eng">MOTOR: APAGADO</div>
+    <div class="stat-chip chip-off" id="chip-grid">RED: AUSENTE</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" id="tab-cl" onclick="goTab('cl')">🔍 Pre-Arranque &amp; Checklist</div>
+  <div class="tab" id="tab-panel" onclick="goTab('panel')">🎛️ Panel Controlador <span class="tab-badge" id="panel-badge">!</span></div>
+</div>
+
+<div class="main">
+
+<div class="sec active" id="sec-cl">
+
+  <div class="exam-toggle-wrap">
+    <span>Modo Guiado</span>
+    <div class="toggle-sw" id="exam-mode-switch" onclick="toggleExamMode()">
+      <div class="toggle-knob"></div>
+    </div>
+    <span>Modo Examen</span>
+  </div>
+
+  <div class="score-bar fadeup">
+    <div class="score-item">
+      <div class="score-val" id="sc-done">0</div>
+      <div class="score-lbl">Completados</div>
+    </div>
+    <div class="score-divider"></div>
+    <div class="score-item">
+      <div class="score-val" id="sc-issues" style="color:var(--amber)">0</div>
+      <div class="score-lbl">Anomalías</div>
+    </div>
+    <div class="score-divider"></div>
+    <div class="score-item">
+      <div class="score-timer" id="sc-time">00:00</div>
+      <div class="score-lbl">Tiempo</div>
+    </div>
+    <div class="score-divider"></div>
+    <div class="score-prog">
+      <div class="prog-lbl"><span>PROGRESO</span><span id="sc-pct">0%</span></div>
+      <div class="prog-track"><div class="prog-fill" id="sc-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="instr-bubble fadeup">
+    <div class="instr-icon">👆</div>
+    <div>Haz clic en los <strong>puntos azules parpadeantes</strong> sobre el generador para inspeccionar cada componente. Algunos sistemas presentarán anomalías que deberás identificar y corregir antes de poder arrancar el equipo. Completa los 11 puntos del checklist.</div>
+  </div>
+
+  <div class="cl-layout">
+
+    <div>
+      <div class="gen-canvas fadeup">
+        <div class="gen-canvas-title">
+          <span>GRUPO ELECTRÓGENO DIESEL · VISTA LATERAL</span>
+          <span id="gc-status">Esperando inspección...</span>
+        </div>
+        <div class="gen-wrap" id="gen-wrap">
+          <img src="GenSet.png" alt="Grupo Electrógeno" style="width: 100%; height: auto; display: block; border-radius: 8px;">
+
+          <div class="hotspot" id="hs-loto"      style="width:44px;height:44px;left:40%;top:60%"  onclick="openModal('loto')">
+            <div class="hs-ring"><span class="hs-icon">🔒</span></div>
+            <div class="hs-label">LOTO</div>
+          </div>
+
+          <div class="hotspot" id="hs-oil"       style="width:44px;height:44px;left:26%;top:50%"  onclick="openModal('oil')">
+            <div class="hs-ring"><span class="hs-icon">🛢️</span></div>
+            <div class="hs-label">BAYONETA</div>
+          </div>
+
+          <div class="hotspot" id="hs-coolant"   style="width:40px;height:40px;left:12%;top:45%"  onclick="openModal('coolant')">
+            <div class="hs-ring"><span class="hs-icon">🌡️</span></div>
+            <div class="hs-label">REFRIG.</div>
+          </div>
+
+          <div class="hotspot" id="hs-radiator"  style="width:44px;height:44px;left:12%;top:30%"  onclick="openModal('radiator')">
+            <div class="hs-ring"><span class="hs-icon">💨</span></div>
+            <div class="hs-label">RADIADOR</div>
+          </div>
+
+          <div class="hotspot" id="hs-airfilter" style="width:44px;height:44px;left:50%;top:25%" onclick="openModal('airfilter')">
+            <div class="hs-ring"><span class="hs-icon">🔍</span></div>
+            <div class="hs-label">FILTRO AIRE</div>
+          </div>
+
+          <div class="hotspot" id="hs-exhaust"   style="width:40px;height:40px;left:30%;top:20%"  onclick="openModal('exhaust')">
+            <div class="hs-ring"><span class="hs-icon">💨</span></div>
+            <div class="hs-label">ESCAPE</div>
+          </div>
+
+          <div class="hotspot" id="hs-fuel"      style="width:44px;height:44px;left:70%;top:70%"  onclick="openModal('fuel')">
+            <div class="hs-ring"><span class="hs-icon">⛽</span></div>
+            <div class="hs-label">TANQUE</div>
+          </div>
+
+          <div class="hotspot" id="hs-battery"   style="width:44px;height:44px;left:55%;top:68%" onclick="openModal('battery')">
+            <div class="hs-ring"><span class="hs-icon">🔋</span></div>
+            <div class="hs-label">BATERÍA</div>
+          </div>
+
+          <div class="hotspot" id="hs-belts"     style="width:44px;height:44px;left:20%;top:38%" onclick="openModal('belts')">
+            <div class="hs-ring"><span class="hs-icon">⚙️</span></div>
+            <div class="hs-label">CORREAS</div>
+          </div>
+
+          <div class="hotspot" id="hs-leaks" style="width:44px;height:44px;left:30%;top:75%" onclick="openModal('leaks')">
+            <div class="hs-ring"><span class="hs-icon">💧</span></div>
+            <div class="hs-label">INSP. FUGAS</div>
+          </div>
+
+          <div class="hotspot" id="hs-breakers" style="width:44px;height:44px;left:85%;top:30%" onclick="openModal('breakers')">
+            <div class="hs-ring"><span class="hs-icon">⚡</span></div>
+            <div class="hs-label">BREAKERS</div>
+          </div>
+
+          <div class="hotspot" id="hs-environment" style="width:44px;height:44px;left:50%;top:85%" onclick="openModal('environment')">
+            <div class="hs-ring"><span class="hs-icon">🧹</span></div>
+            <div class="hs-label">ENTORNO</div>
+          </div>
+
+          <div class="hotspot" id="hs-wiring" style="display:none">
+            <div class="hs-ring"><span class="hs-icon"></span></div>
+            <div class="hs-label"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <div class="cl-right" id="cl-right">
+      <div class="complete-card" id="complete-card">
+        <div class="complete-icon">✅</div>
+        <div class="complete-title">CHECKLIST COMPLETO</div>
+        <div class="complete-sub" id="complete-sub"></div>
+        <button class="btn-primary btn-green" onclick="goTab('panel')" style="max-width:220px;margin:0 auto">
+          PROCEDER AL PANEL →
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="sec" id="sec-panel">
+
+  <div class="cl-warn-banner" id="cl-warn">
+    ⚠️ <span>El checklist no está completo. Completa la inspección pre-arranque para operar con seguridad.</span>
+  </div>
+
+  <div class="panel-layout">
+
+    <div class="ctrl-face fadeup">
+      <div class="ctrl-brand-hdr">
+        <div class="ctrl-brand-name">DEEPSEA DSE 7320</div>
+        <div class="ctrl-brand-model">AUTOMATIC MAINS FAILURE CONTROLLER · REV. 4.2</div>
+      </div>
+
+      <!-- NUEVO: Overlay para panel desenergizado -->
+      <div class="panel-deenergized-overlay" id="panel-deenergized">
+        <div class="pde-icon">🚫</div>
+        <div class="pde-text">PANEL DESENERGIZADO<br>BATERÍA DESCONECTADA</div>
+      </div>
+
+      <div class="alarm-strip">
+        <div class="alarm-led" id="alarm-led"></div>
+        <div class="alarm-txt ok" id="alarm-txt">SISTEMA OK — SIN ALARMAS ACTIVAS</div>
+      </div>
+
+      <div class="display-area">
+        <div class="display-pages">
+          <!-- Página de Valores del Generador -->
+          <div class="disp-page" id="disp-page-gen">
+            <div class="disp-box"><div class="d-lbl">VOLTAJE L1-N</div><div class="d-val" id="d-v1">---</div><div class="d-unit">V AC</div></div>
+            <div class="disp-box"><div class="d-lbl">VOLTAJE L2-N</div><div class="d-val" id="d-v2">---</div><div class="d-unit">V AC</div></div>
+            <div class="disp-box"><div class="d-lbl">VOLTAJE L3-N</div><div class="d-val" id="d-v3">---</div><div class="d-unit">V AC</div></div>
+            <div class="disp-box"><div class="d-lbl">VOLTAJE L1-L2</div><div class="d-val" id="d-v12">---</div><div class="d-unit">V AC</div></div>
+            <div class="disp-box"><div class="d-lbl">VOLTAJE L2-L3</div><div class="d-val" id="d-v23">---</div><div class="d-unit">V AC</div></div>
+            <div class="disp-box"><div class="d-lbl">VOLTAJE L3-L1</div><div class="d-val" id="d-v31">---</div><div class="d-unit">V AC</div></div>
+            <div class="disp-box"><div class="d-lbl">FRECUENCIA</div><div class="d-val" id="d-freq">---</div><div class="d-unit">Hz</div></div>
+            <div class="disp-box" style="grid-column: span 2;"><div class="d-lbl">POTENCIA ACTIVA</div><div class="d-val" id="d-kw">---</div><div class="d-unit">kW</div></div>
+          </div>
+          <!-- Página de Valores del Motor -->
+          <div class="disp-page active" id="disp-page-engine">
+            <div class="disp-box"><div class="d-lbl">RPM MOTOR</div><div class="d-val" id="d-rpm">---</div><div class="d-unit">RPM</div></div>
+            <div class="disp-box"><div class="d-lbl">TEMP. MOTOR</div><div class="d-val" id="d-temp">25.0</div><div class="d-unit">°C</div></div>
+            <div class="disp-box"><div class="d-lbl">PRESIÓN ACEITE</div><div class="d-val" id="d-oil">---</div><div class="d-unit">PSI</div></div>
+            <div class="disp-box"><div class="d-lbl">TENSIÓN BATT</div><div class="d-val" id="d-batt">12.4</div><div class="d-unit">VDC</div></div>
+            <div class="disp-box"><div class="d-lbl">HORAS MOTOR</div><div class="d-val" id="d-hours">---</div><div class="d-unit">h</div></div>
+            <div class="disp-box"><div class="d-lbl">CONSUMO</div><div class="d-val" id="d-fuelrate">---</div><div class="d-unit">L/h</div></div>
+          </div>
+          <!-- Página de Valores de Red -->
+          <div class="disp-page" id="disp-page-grid">
+            <div class="disp-box"><div class="d-lbl">VOLTAJE RED L1</div><div class="d-val" id="d-grid-v">---</div><div class="d-unit">V AC</div></div>
+            <div class="disp-box"><div class="d-lbl">FRECUENCIA RED</div><div class="d-val" id="d-grid-f">---</div><div class="d-unit">Hz</div></div>
+            <div class="disp-box" style="grid-column: span 2; text-align:center;"><div class="d-lbl">ESTADO DE LA RED</div><div class="d-val" id="d-grid-st" style="font-size: 1.1rem;">---</div></div>
+          </div>
+        </div>
+        <div class="display-nav">
+          <button class="nav-btn" onclick="navigateDisplay(-1)">◄</button>
+          <div class="disp-page-name" id="disp-page-name">VALORES DEL MOTOR</div>
+          <button class="nav-btn" onclick="navigateDisplay(1)">►</button>
+        </div>
+      </div>
+
+      <div class="fuel-strip">
+        <div class="fs-lbl">NIVEL DE COMBUSTIBLE</div>
+        <div class="fs-track"><div class="fs-fill" id="fs-fill" style="width:75%;background:var(--green)"></div></div>
+        <div class="fs-labels"><span>VACÍO</span><span id="fs-pct" style="color:var(--green)">75%</span><span>LLENO</span></div>
+      </div>
+
+      <div class="run-strip" id="run-strip">
+        <div class="run-dot"></div>
+        <span class="run-txt">MOTOR EN MARCHA</span>
+        <div class="run-bar"><div class="run-fill"></div></div>
+        <span class="run-txt" id="run-rpm">1800 RPM</span>
+      </div>
+
+      <div class="lamp-strip">
+        <div class="lamp"><div class="lamp-dot" id="l-ready"></div>LISTO</div>
+        <div class="lamp"><div class="lamp-dot" id="l-run"></div>EN MARCHA</div>
+        <div class="lamp"><div class="lamp-dot" id="l-fault"></div>FALLA</div>
+        <div class="lamp"><div class="lamp-dot" id="l-mains"></div>RED PRES.</div>
+        <div class="lamp"><div class="lamp-dot" id="l-gen"></div>GEN.ACTIVO</div>
+        <div class="lamp"><div class="lamp-dot" id="l-auto"></div>AUTO</div>
+      </div>
+
+      <div class="mode-wrap">
+        <div class="mode-lbl">SELECTOR DE MODO</div>
+        <div class="mode-btns">
+          <button class="mode-btn on" id="mb-off"    onclick="setMode('off')">PARAR</button>
+          <button class="mode-btn"    id="mb-manual" onclick="setMode('manual')">MANUAL</button>
+          <button class="mode-btn"    id="mb-auto"   onclick="setMode('auto')">AUTO</button>
+        </div>
+      </div>
+
+      <div class="ctrl-btns">
+        <button class="c-btn green" id="btn-start" onclick="manualStart()" disabled>▶ ARRANCAR</button>
+        <button class="c-btn red"   id="btn-stop"  onclick="manualStop()"  disabled>■ PARAR</button>
+        <button class="c-btn amber" id="btn-reset" onclick="resetFault()">↺ RESET</button>
+      </div>
+
+      <div class="estop-wrap">
+        <div class="estop-btn" id="btn-estop" onclick="toggleEStop()">
+          <span style="color:white; font-weight:bold; font-size:1.5rem;">STOP</span>
+        </div>
+        <div class="estop-label">PARO DE EMERGENCIA</div>
+      </div>
+    </div>
+
+    <div class="right-col fadeup">
+
+      <div class="r-card">
+        <div class="r-card-hdr"><div class="r-card-title">⚡ SIMULADOR RED ELÉCTRICA (CFE)</div></div>
+        <div class="r-card-body">
+          <div class="grid-toggle-row">
+            <div class="toggle-label">Suministro de Red</div>
+            <div class="toggle-sw" id="grid-sw" onclick="toggleGrid()">
+              <div class="toggle-knob"></div>
+            </div>
+          </div>
+          <div class="grid-readouts">
+            <div class="gr-row"><span class="gr-k">ESTADO:</span><span class="gr-v r" id="gr-st">AUSENTE</span></div>
+            <div class="gr-row"><span class="gr-k">VOLTAJE:</span><span class="gr-v" id="gr-v">0 V</span></div>
+            <div class="gr-row"><span class="gr-k">FRECUENCIA:</span><span class="gr-v" id="gr-f">0.0 Hz</span></div>
+            <div class="gr-row"><span class="gr-k">TRANSFERENCIA:</span><span class="gr-v a" id="gr-tr">EN GENERADOR</span></div>
+            <div class="gr-row"><span class="gr-k">TIEMPO SIN RED:</span><span class="gr-v" id="gr-time">—</span></div>
+          </div>
+          <div class="auto-info">
+            En modo <strong>AUTO</strong>: al fallar la red el controlador espera <strong>10 s</strong> de confirmación, luego arranca y transfiere la carga. Al regresar la red, espera <strong>30 s</strong> de enfriamiento y devuelve la carga.
+          </div>
+        </div>
+      </div>
+
+      <!-- NUEVO: Panel de Radio -->
+      <div class="r-card" id="radio-card">
+        <div class="r-card-hdr"><div class="r-card-title">📡 RADIO DE COMUNICACIONES</div></div>
+        <div class="r-card-body">
+          <div class="radio-wrap">
+            <div class="radio-desc" id="radio-status-desc">Notifique al personal antes de iniciar procedimientos de bloqueo.</div>
+            <button class="radio-btn" id="radio-ptt-btn">
+              <span>PULSADOR (PTT)</span>
+            </button>
+            <div class="radio-transmit-msg" id="radio-transmit-msg">TRANSMITIENDO...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="r-card">
+        <div class="r-card-hdr"><div class="r-card-title">🏭 BANCO DE CARGA DINÁMICO</div></div>
+        <div class="r-card-body">
+          <div class="load-slider-wrap">
+            <label style="font-size:0.8rem; color:var(--cyan); font-weight:bold;">DEMANDA DE LA INSTALACIÓN</label>
+            <input type="range" id="load-slider" min="0" max="115" value="0" step="5" oninput="updateLoad()">
+            <div class="load-stats">
+              <span>Demanda: <span id="lbl-load-pct">0</span>%</span>
+              <span id="lbl-load-kw">0 kW</span>
+            </div>
+            <div style="font-size:0.7rem; color:var(--dim); margin-top:10px; line-height:1.4">
+              Arrastra para simular escalones de carga. Al superar el 100% de capacidad, se simulará una sobrecarga y activará protecciones térmicas (ANSI 51) si se mantiene.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="r-card">
+        <div class="r-card-hdr"><div class="r-card-title">📋 REGISTRO DE EVENTOS</div></div>
+        <div class="r-card-body" style="padding:10px">
+          <div class="elog" id="elog">
+            <div class="elog-line sys"><span class="elog-time">00:00:00</span>Sistema iniciado. Esperando operación.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal-box">
+  </div>
+</div>
+
+<script src="simulador.js"></script>
+</body>
+</html>
