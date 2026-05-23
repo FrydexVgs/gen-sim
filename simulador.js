@@ -23,6 +23,7 @@ const S = {
     taggedBy: '',
     // Nuevos estados para el flujo LOTO
     notified: false, // Si el personal fue notificado por radio
+    unlockNotified: false, // Si el personal fue notificado para desbloquear
     stage: 'identify', // 'identify', 'notify', 'shutdown', 'isolate', 'verify', 'unlock'
     verificationAttempted: false, // Si el usuario intentó arrancar para verificar energía cero
     energies: {
@@ -142,24 +143,40 @@ function setupRadio() {
 
     const startTransmit = (e) => {
         e.preventDefault();
-        if (S.loto.notified) return;
+        // No transmitir si ya se notificó para la etapa actual (bloqueo o desbloqueo)
+        if ((!S.loto.applied && S.loto.notified) || (S.loto.applied && S.loto.unlockNotified)) {
+            return;
+        }
         transmitMsg.style.display = 'block';
         pttBtn.classList.add('active');
     };
 
     const endTransmit = (e) => {
         e.preventDefault();
-        if (S.loto.notified) return;
+        if ((!S.loto.applied && S.loto.notified) || (S.loto.applied && S.loto.unlockNotified)) {
+            return;
+        }
         transmitMsg.style.display = 'none';
         pttBtn.classList.remove('active');
-        
-        S.loto.notified = true;
-        elog('📡 NOTIFICACIÓN: Se ha informado al personal sobre el bloqueo del equipo.', 'info');
-        
-        pttBtn.classList.add('done');
-        pttBtn.querySelector('span').textContent = '✅ PERSONAL NOTIFICADO';
-        radioDesc.textContent = 'El personal ha sido notificado. Puede proceder con el LOTO.';
-        radioDesc.style.color = 'var(--green)';
+
+        if (S.loto.applied) { // Procedimiento de DESBLOQUEO
+            S.loto.unlockNotified = true;
+            elog('📡 NOTIFICACIÓN: Se ha informado al personal sobre el DESBLOQUEO del equipo.', 'info');
+            pttBtn.classList.add('done');
+            pttBtn.querySelector('span').textContent = '✅ DESBLOQUEO NOTIFICADO';
+            radioDesc.textContent = 'El personal ha sido notificado. Puede proceder con el desbloqueo.';
+            radioDesc.style.color = 'var(--green)';
+            if (currentModal === 'loto') {
+                openModal('loto'); // Re-render para habilitar botón de desbloqueo
+            }
+        } else { // Procedimiento de BLOQUEO
+            S.loto.notified = true;
+            elog('📡 NOTIFICACIÓN: Se ha informado al personal sobre el bloqueo del equipo.', 'info');
+            pttBtn.classList.add('done');
+            pttBtn.querySelector('span').textContent = '✅ PERSONAL NOTIFICADO';
+            radioDesc.textContent = 'El personal ha sido notificado. Puede proceder con el LOTO.';
+            radioDesc.style.color = 'var(--green)';
+        }
     };
 
     pttBtn.addEventListener('mousedown', startTransmit);
@@ -358,6 +375,7 @@ function cancelLotoProcedure() {
     S.loto.batteryDisconnected = false;
     S.loto.taggedBy = '';
     S.loto.notified = false;
+    S.loto.unlockNotified = false;
     
     // Reset radio UI
     const pttBtn = document.getElementById('radio-ptt-btn');
@@ -1038,10 +1056,14 @@ function buildLoto() {
 
     // --- VISTA DE DESBLOQUEO (Si LOTO ya está aplicado) ---
     if (S.loto.applied) {
+        const unlockNotified = S.loto.unlockNotified;
         return `
         <div class="modal-hdr"><div class="modal-icon">🔒</div><div><div class="modal-title" style="color:var(--cyan)">RETIRAR BLOQUEO (LOTO)</div></div></div>
         <div class="modal-body">
-            <div class="didact-box"><div class="db-title">Procedimiento de Desbloqueo</div>Solo el personal que aplicó el bloqueo puede retirarlo, tras confirmar que la intervención ha finalizado.</div>
+            <div class="didact-box warn"><div class="db-title">Paso 1: Notificar</div>Vaya al panel de <strong>Radio de Comunicaciones</strong> y use el pulsador (PTT) para notificar a todo el personal que el equipo será re-energizado.</div>
+            <div class="loto-prereq">
+                <div class="loto-prereq-item"><span>- Personal notificado para desbloqueo</span> <span>${unlockNotified ? '✅' : '❌'}</span></div>
+            </div>
             <div class="loto-tag-preview">
                 <strong>⚠️ EQUIPO BLOQUEADO ⚠️</strong>
                 <div><strong>PELIGRO:</strong> No operar.</div>
@@ -1050,12 +1072,13 @@ function buildLoto() {
             </div>
             <div class="fix-steps" style="margin-top:16px">
               <div class="fix-step"><div class="fix-step-num">1</div><div class="fix-step-txt">Verificar que la intervención ha finalizado y el equipo está en condiciones seguras.</div></div>
-              <div class="fix-step"><div class="fix-step-num">2</div><div class="fix-step-txt">Retirar candado y etiqueta de seguridad.</div></div>
-              <div class="fix-step"><div class="fix-step-num">3</div><div class="fix-step-txt">Reconectar la batería para energizar el panel de control.</div></div>
+              <div class="fix-step"><div class="fix-step-num">2</div><div class="fix-step-txt"><strong>Notificar al personal por radio</strong> sobre la re-energización.</div></div>
+              <div class="fix-step"><div class="fix-step-num">3</div><div class="fix-step-txt">Retirar candado y etiqueta de seguridad.</div></div>
+              <div class="fix-step"><div class="fix-step-num">4</div><div class="fix-step-txt">Reconectar la batería para energizar el panel de control.</div></div>
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-primary btn-green" onclick="toggleLotoState(false)" style="flex:1">🔓 Retirar Bloqueo y Reconectar</button>
+            <button class="btn-primary btn-green" onclick="toggleLotoState(false)" style="flex:1" ${!unlockNotified ? 'disabled title="Requiere notificación por radio"' : ''}>🔓 Retirar Bloqueo y Reconectar</button>
             <button class="btn-primary" onclick="closeModal()" style="flex:0.4;background:var(--bg2);border:1px solid var(--border2);color:var(--dim)">Cancelar</button>
         </div>`;
     }
@@ -1226,6 +1249,7 @@ function toggleLotoState(apply) {
         S.loto.batteryDisconnected = false;
         S.loto.taggedBy = '';
         S.loto.notified = false;
+        S.loto.unlockNotified = false;
         S.loto.stage = 'identify';
         S.loto.verificationAttempted = false;
         Object.keys(S.loto.energies).forEach(k => S.loto.energies[k] = false);
@@ -1420,6 +1444,15 @@ function completeZone(key, hasIssue) {
     if (hasIssue) { // This means LOTO was applied
         S.loto.applied = true;
         DONE[key] = 'issue'; // 'issue' state for LOTO means it's active
+
+        // Reset radio for unlock notification
+        const pttBtn = document.getElementById('radio-ptt-btn');
+        const radioDesc = document.getElementById('radio-status-desc');
+        pttBtn.classList.remove('done');
+        pttBtn.querySelector('span').textContent = 'PULSADOR (PTT)';
+        radioDesc.textContent = 'Equipo bloqueado. Notifique al personal para iniciar el desbloqueo.';
+        radioDesc.style.color = 'var(--dim)';
+
     } else { // This means LOTO was removed
         delete DONE[key];
     }
@@ -1437,8 +1470,9 @@ function completeZone(key, hasIssue) {
   if (hs) {
     hs.classList.remove('done', 'fixed');
     if (DONE[key]) {
-        hs.classList.add(DONE[key] === 'issue' ? 'fixed' : 'done');
-        hs.onclick = null;
+        hs.classList.add(DONE[key] === 'issue' ? 'fixed' : 'done');        
+        // Allow LOTO hotspot to be clicked always to show status/unlock
+        if (key !== 'loto') { hs.onclick = null; }
         const icon = hs.querySelector('.hs-icon');
         if (icon) icon.textContent = '';
     } else {
@@ -1548,19 +1582,21 @@ function updateProgress() {
     document.getElementById('complete-card').classList.add('show');
     document.getElementById('panel-badge').classList.add('show');
 
-    // Auto-open first step wasn't done
     document.querySelectorAll('.step-card.expanded').forEach(c=>c.classList.remove('expanded'));
   } else {
-    // Auto-expand next undone
-    const nextKey = STEPS.find(s=>!DONE[s.key]);
-    if (nextKey) {
-      setTimeout(() => {
-        const card = document.getElementById('sc-'+nextKey.key);
-        if (card) {
-          card.classList.add('expanded','active-step');
-          card.scrollIntoView({behavior:'smooth',block:'nearest'});
-        }
-      }, 300);
+    // Auto-expand next undone, ONLY in guided mode.
+    if (!S.examMode) {
+      const nextKey = STEPS.find(s=>!DONE[s.key]);
+      if (nextKey) {
+        setTimeout(() => {
+          document.querySelectorAll('.step-card.active-step').forEach(c => c.classList.remove('active-step'));
+          const card = document.getElementById('sc-'+nextKey.key);
+          if (card) {
+            card.classList.add('expanded','active-step');
+            card.scrollIntoView({behavior:'smooth',block:'nearest'});
+          }
+        }, 300);
+      }
     }
   }
 }
@@ -2182,3 +2218,9 @@ setTimeout(()=>{
   const first = document.getElementById('sc-'+STEPS[0].key);
   if (first) first.classList.add('expanded','active-step');
 },400);
+if (!S.examMode) {
+  setTimeout(()=>{
+    const first = document.getElementById('sc-'+STEPS[0].key);
+    if (first) first.classList.add('expanded','active-step');
+  },400);
+}
