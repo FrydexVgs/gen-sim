@@ -10,7 +10,6 @@ const S = {
   // Valores iniciales de niveles, influenciados por ISSUES
   oilLevel: 0, // Se inicializa después de ISSUES
   coolantLevel: 0, // Se inicializa después de ISSUES
-   fuelRand: 0, // Se inicializa después de ISSUES
   fuelWaterDrained: false,
   battVolt: 0, // Se inicializa después de ISSUES
   // NUEVAS VARIABLES DE REALISMO
@@ -80,7 +79,6 @@ if (fuelRng < 0.25) {
 // Initialize S variables based on ISSUES
 S.oilLevel = ISSUES['oil'] ? (15 + Math.random() * 18) : (62 + Math.random() * 32); // Low if issue, else normal
 S.coolantLevel = ISSUES['coolant'] ? (18 + Math.random() * 20) : (65 + Math.random() * 28); // Low if issue, else normal
-S.fuelRand = ISSUES['leaks'] ? (12 + Math.random() * 18) : (55 + Math.random() * 40); // Lower if leaks, else normal
 S.fuel = ISSUES['leaks'] ? (12 + Math.random() * 18) : (55 + Math.random() * 40); // Lower if leaks, else normal
 S.battVolt = ISSUES['battery'] ? (22.0 + Math.random() * 1.6) : (24.8 + Math.random() * 0.8); // Low if issue, else normal
 S.airFilterBlocked = ISSUES['airfilter'];
@@ -170,6 +168,7 @@ function toggleExamMode() {
 
 // VARIABLES GLOBALES DE THREE.JS
 let scene, camera, renderer, raycaster, mouse, controls, generadorModel;
+let currentHoveredKey = null;
 
 function setupThreeJSViewer() {
     const container = document.getElementById('gen-viewer');
@@ -205,6 +204,7 @@ function setupThreeJSViewer() {
     const loader = new THREE.GLTFLoader();
     loader.load('generador.glb', (gltf) => {
         generadorModel = gltf.scene;
+        const interactiveNodes = [];
         
         // Centrar y escalar automáticamente el modelo para que se vea perfecto
         const box = new THREE.Box3().setFromObject(generadorModel);
@@ -218,6 +218,28 @@ function setupThreeJSViewer() {
         const maxDim = Math.max(size.x, size.y, size.z);
         camera.position.set(maxDim, maxDim * 0.5, maxDim * 1.5);
         controls.target.set(0, 0, 0);
+        
+        // Pre-cache de materiales para optimizar rendimiento de Hover
+        generadorModel.traverse((child) => {
+            if (child.isMesh) {
+                let node = child;
+                let key = null;
+                while (node) {
+                    let nombreNormalizado = (node.name || '').replace(/_/g, ' ');
+                    key = MESH_TO_KEY_MAP[node.name] || MESH_TO_KEY_MAP[nombreNormalizado];
+                    if (key) break;
+                    node = node.parent;
+                }
+                if (key && child.material && child.material.emissive) {
+                    child.material = child.material.clone();
+                    child.userData.materialCloned = true;
+                    child.userData.originalEmissive = child.material.emissive.getHex();
+                    child.userData.mapKey = key;
+                    interactiveNodes.push(child);
+                }
+            }
+        });
+        generadorModel.userData.interactiveNodes = interactiveNodes;
         
         console.log('✅ Three.js: Modelo cargado y centrado.');
         
@@ -257,17 +279,24 @@ function setupThreeJSInteraction(container) {
         const intersects = raycaster.intersectObjects(generadorModel.children, true);
         
         let isInteractive = false;
+        let hoveredKey = null;
         if (intersects.length > 0) {
             let targetNode = intersects[0].object;
             while (targetNode) {
                 // Reemplaza guiones bajos por espacios para asegurar la compatibilidad
                  let nombreNormalizado = (targetNode.name || '').replace(/_/g, ' ');
-                if (MESH_TO_KEY_MAP[targetNode.name] || MESH_TO_KEY_MAP[nombreNormalizado]) {
+                let key = MESH_TO_KEY_MAP[targetNode.name] || MESH_TO_KEY_MAP[nombreNormalizado];
+                if (key) {
                     isInteractive = true;
+                    hoveredKey = key;
                     break;
                 }
                 targetNode = targetNode.parent;
             }
+        }
+        if (currentHoveredKey !== hoveredKey) {
+            currentHoveredKey = hoveredKey;
+            updateMeshColors();
         }
         container.style.cursor = isInteractive ? 'pointer' : 'grab';
     });
@@ -741,7 +770,7 @@ function buildFuel() {
   </div>
   <div class="modal-body">
     <div style="margin-bottom:16px">
-      <div style="font-family:'Orbitron',monospace;font-size:2.5rem;font-weight:900;color:${isLow?'var(--red)':lvl<40?'var(--amber)':'var(--green)'};text-align:center;margin-bottom:4px">${Math.round(lvl)}%</div>
+      <div style="font-size:2.5rem;font-weight:500;color:${isLow?'var(--red)':lvl<40?'var(--amber)':'var(--green)'};text-align:center;margin-bottom:4px">${Math.round(lvl)}%</div>
       <div class="fuel-visual">
         <div class="fuel-fill" id="ff-fill" style="width:0%;background:${isLow?'var(--red)':lvl<40?'var(--amber)':'var(--green)'}"></div>
         <div class="fuel-needle" style="left:0%" id="ff-needle"></div>
@@ -1376,7 +1405,7 @@ function buildLoto() {
             <div class="didact-box warn"><div class="db-title">Acción Requerida</div>Para confirmar que el equipo está en un estado de energía cero, <strong>vaya al panel de control e intente arrancar el motor</strong> con el botón de arranque manual.</div>
             <div class="loto-prereq" style="text-align:center;">
                 <div style="font-weight: 700; margin-bottom: 8px;">ESTADO DE VERIFICACIÓN</div>
-                <div id="loto-verify-status" style="font-family:'Share Tech Mono', monospace; font-size: 1.2rem; color: var(--amber);">
+                <div id="loto-verify-status" style="font-size: 1.2rem; font-weight: 500; color: var(--amber);">
                     ${S.loto.verificationAttempted ? '✅ VERIFICACIÓN EXITOSA' : 'PENDIENTE DE VERIFICACIÓN...'}
                 </div>
             </div>
@@ -1721,6 +1750,7 @@ function completeZone(key, hasIssue) {
     // Breakers are interactive in modal, assume user fixed it there
   }
 
+  updateMeshColors();
 
   updateProgress();
 }
@@ -1753,6 +1783,7 @@ function updateProgress() {
     document.getElementById('complete-sub').textContent = sub;
     document.getElementById('complete-card').classList.add('show');
     document.getElementById('panel-badge').classList.add('show');
+    updateLamps(); // Actualiza el panel (luz verde de LISTO)
 
     document.querySelectorAll('.step-card.expanded').forEach(c=>c.classList.remove('expanded'));
   } else {
@@ -1848,8 +1879,9 @@ function toggleEStop() {
     // Corte inmediato, sin enfriamiento
     if (S.engine || S.starting) {
       S.engine = false; S.starting = false; S.stopping = false;
+      S.stoppingTime = Date.now();
       stopValues();
-      startCooldown(); // Permitir que el motor se enfríe de forma natural
+      startCooldown(S.loadPct); // Permitir que el motor se enfríe de forma natural
       clearDisps();
       document.getElementById('run-strip').classList.remove('on');
       document.getElementById('chip-eng').textContent='MOTOR: BLOQUEADO';
@@ -2002,8 +2034,9 @@ function stopEngine() {
   if (!S.engine&&!S.starting) return;
   if (S.beltBreakTimer) { clearTimeout(S.beltBreakTimer); S.beltBreakTimer = null; }
   S.stopping=true; S.engine=false;
+  S.stoppingTime = Date.now();
   stopValues();
-  startCooldown();
+  startCooldown(S.loadPct);
   setAlarm('PARANDO — Ciclo de enfriamiento...','info');
   elog('Iniciando paro — enfriamiento activo (30s)','warn');
   updateManualBtns();
@@ -2096,8 +2129,8 @@ function updateMeshColors() {
                         child.userData.originalEmissive = child.material.emissive.getHex();
                     }
                     child.userData.mapKey = key;
-                    if (child === hoveredMesh) return; // Omitir el actual si el ratón está encima
-                    if (DONE[key] === 'ok') child.material.emissive.setHex(0x002208); // Tono verde permanente
+                    if (key === currentHoveredKey) child.material.emissive.setHex(0x334455);
+                    else if (DONE[key] === 'ok') child.material.emissive.setHex(0x002208); // Tono verde permanente
                     else if (DONE[key] === 'issue') child.material.emissive.setHex(0x220800); // Tono rojo permanente
                     else child.material.emissive.setHex(child.userData.originalEmissive);
                 }
@@ -2431,11 +2464,6 @@ function elog(msg, cls) {
 //  BOOT
 // ══════════════════════════════════════════════
 init();
-// Auto-expand first step
-setTimeout(()=>{
-  const first = document.getElementById('sc-'+STEPS[0].key);
-  if (first) first.classList.add('expanded','active-step');
-},400);
 if (!S.examMode) {
   setTimeout(()=>{
     const first = document.getElementById('sc-'+STEPS[0].key);
