@@ -10,7 +10,7 @@ const S = {
   // Valores iniciales de niveles, influenciados por ISSUES
   oilLevel: 0, // Se inicializa después de ISSUES
   coolantLevel: 0, // Se inicializa después de ISSUES
-  fuelRand: 0, // Se inicializa después de ISSUES
+   fuelRand: 0, // Se inicializa después de ISSUES
   fuelWaterDrained: false,
   battVolt: 0, // Se inicializa después de ISSUES
   // NUEVAS VARIABLES DE REALISMO
@@ -81,6 +81,7 @@ if (fuelRng < 0.25) {
 S.oilLevel = ISSUES['oil'] ? (15 + Math.random() * 18) : (62 + Math.random() * 32); // Low if issue, else normal
 S.coolantLevel = ISSUES['coolant'] ? (18 + Math.random() * 20) : (65 + Math.random() * 28); // Low if issue, else normal
 S.fuelRand = ISSUES['leaks'] ? (12 + Math.random() * 18) : (55 + Math.random() * 40); // Lower if leaks, else normal
+S.fuel = ISSUES['leaks'] ? (12 + Math.random() * 18) : (55 + Math.random() * 40); // Lower if leaks, else normal
 S.battVolt = ISSUES['battery'] ? (22.0 + Math.random() * 1.6) : (24.8 + Math.random() * 0.8); // Low if issue, else normal
 S.airFilterBlocked = ISSUES['airfilter'];
 S.radiatorBlocked = ISSUES['radiator'];
@@ -96,6 +97,24 @@ const HIGH_TEMP_FAULT_THRESHOLD = 105; // °C
 
 const DONE = {}; // key -> 'ok' | 'issue'
 let currentModal = null;
+
+// Mapea los nombres de las mallas de tu archivo .glb a las claves internas del simulador.
+// ¡OJO! El nombre debe ser EXACTO, incluyendo mayúsculas, tildes y espacios.
+const MESH_TO_KEY_MAP = {
+  'Entorno del Equipo': 'environment',
+  'Inspeccion de Fugas': 'leaks',
+  'Nivel de Aceite': 'oil',
+  'Nivel de Refrigerante': 'coolant',
+  'Nivel de Combustible': 'fuel',
+  'Radiador y Ventilador': 'radiator',
+  'Filtro de Aire': 'airfilter',
+  'Sistema de Escape': 'exhaust',
+  'Correas y Poleas': 'belts',
+  'Bateria de Arranque': 'battery',
+  'Breakers y Panel': 'breakers',
+  // Si tienes una malla para LOTO, añádela aquí. Ej: 'Caja_LOTO': 'loto'
+};
+
 
 // ══════════════════════════════════════════════
 //  CHECKLIST DATA
@@ -127,12 +146,171 @@ function init() {
   document.getElementById('d-batt').textContent = S.battVolt.toFixed(1); // Initial battery voltage
   updateDisplayPage();
   setupRadio();
+  
+  // Manejador de clics en el panel desenergizado (para Verificación de Energía Cero LOTO)
+  document.getElementById('panel-deenergized').addEventListener('click', () => {
+      if (S.loto.stage === 'verify' && !S.loto.verificationAttempted) {
+          S.loto.verificationAttempted = true;
+          elog('LOTO: Intento de arranque bloqueado. Verificación de energía cero exitosa.', 'ok');
+          openModal('loto');
+      } else if (S.loto.batteryDisconnected) {
+          elog('El panel no responde. Batería desconectada.', 'warn');
+      }
+  });
+  
+  // Iniciar visor 3D clásico de Three.js
+  setupThreeJSViewer();
 }
 
 function toggleExamMode() {
   S.examMode = !S.examMode;
   document.body.classList.toggle('exam-mode', S.examMode);
   document.getElementById('exam-mode-switch').classList.toggle('on', S.examMode);
+}
+
+// VARIABLES GLOBALES DE THREE.JS
+let scene, camera, renderer, raycaster, mouse, controls, generadorModel;
+
+function setupThreeJSViewer() {
+    const container = document.getElementById('gen-viewer');
+    if (!container) return;
+
+    // 1. Escena y Cámara
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+    
+    // 2. Renderizador
+    renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    // 3. Luces
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
+
+    // 4. Controles (OrbitControls)
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // 5. Raycaster y Mouse (Como tú lo propusiste)
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+
+    // 6. Cargar el Modelo .glb
+    const loader = new THREE.GLTFLoader();
+    loader.load('generador.glb', (gltf) => {
+        generadorModel = gltf.scene;
+        
+        // Centrar y escalar automáticamente el modelo para que se vea perfecto
+        const box = new THREE.Box3().setFromObject(generadorModel);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        
+        generadorModel.position.sub(center); // Llevar al origen (0,0,0)
+        scene.add(generadorModel);
+        
+        // Ajustar la cámara basada en el tamaño real del modelo
+        const maxDim = Math.max(size.x, size.y, size.z);
+        camera.position.set(maxDim, maxDim * 0.5, maxDim * 1.5);
+        controls.target.set(0, 0, 0);
+        
+        console.log('✅ Three.js: Modelo cargado y centrado.');
+        
+        // Iniciar animación e interacción
+        animate();
+        setupThreeJSInteraction(container);
+
+    }, undefined, (error) => {
+        console.error('Error al cargar el modelo 3D:', error);
+    });
+
+    // ResizeObserver permite que el canvas se adapte dinámicamente si el grid o los paneles cambian de tamaño sin afectar el window
+    const resizeObserver = new ResizeObserver(() => {
+        if (container.clientWidth > 0) {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+    });
+    resizeObserver.observe(container);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+function setupThreeJSInteraction(container) {
+    // INTERACCIÓN DE HOVER (Cursor de Puntero)
+    container.addEventListener('mousemove', (event) => {
+        const rect = container.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(generadorModel.children, true);
+        
+        let isInteractive = false;
+        if (intersects.length > 0) {
+            let targetNode = intersects[0].object;
+            while (targetNode) {
+                // Reemplaza guiones bajos por espacios para asegurar la compatibilidad
+                 let nombreNormalizado = (targetNode.name || '').replace(/_/g, ' ');
+                if (MESH_TO_KEY_MAP[targetNode.name] || MESH_TO_KEY_MAP[nombreNormalizado]) {
+                    isInteractive = true;
+                    break;
+                }
+                targetNode = targetNode.parent;
+            }
+        }
+        container.style.cursor = isInteractive ? 'pointer' : 'grab';
+    });
+
+    // INTERACCIÓN DE CLIC (El Raycaster Clásico que propusiste)
+    container.addEventListener('click', (event) => {
+        const rect = container.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersecciones = raycaster.intersectObjects(generadorModel.children, true);
+
+        if (intersecciones.length > 0) {
+            let targetNode = intersecciones[0].object;
+            let key = null;
+            let clickedMeshName = null;
+
+            while (targetNode) {
+                // Reemplaza guiones bajos por espacios para asegurar la compatibilidad
+                 let nombreNormalizado = (targetNode.name || '').replace(/_/g, ' ');
+                key = MESH_TO_KEY_MAP[targetNode.name] || MESH_TO_KEY_MAP[nombreNormalizado];
+                if (key) {
+                    clickedMeshName = targetNode.name;
+                    break;
+                }
+                targetNode = targetNode.parent;
+            }
+
+            if (key) {
+                console.log(`🎯 Clic exacto en malla: '${clickedMeshName}', abriendo modal: '${key}'`);
+                if (DONE[key] && key !== 'loto') {
+                    elog(`La zona '${STEPS.find(s => s.key === key).label}' ya fue inspeccionada.`, 'sys');
+                    return;
+                }
+                openModal(key);
+            } else {
+                console.log(`Clic en la malla no interactiva: '${intersecciones[0].object.name}'`);
+            }
+        } else {
+            console.log('Clic en el fondo.');
+        }
+    });
 }
 
 // NUEVO: Lógica del Radio
@@ -517,8 +695,8 @@ function buildCoolant() {
   </div>
   <div class="modal-footer">
     ${hasIssue ?
-      `<button class="btn-primary btn-amber" onclick="completeZone('coolant',true)" style="flex:1" ${!S.loto.applied ? 'disabled title="Se requiere LOTO para intervenir"' : ''}>
-        ⚠️ Agregar refrigerante y registrar
+      `<button class="btn-primary btn-amber" onclick="completeZone('coolant',true)" style="flex:1" ${!S.loto.applied ? 'disabled' : ''}>
+        ${!S.loto.applied ? '🔒 Requiere LOTO para intervenir' : '⚠️ Agregar refrigerante y registrar'}
        </button>` :
       `<button class="btn-primary btn-green" onclick="completeZone('coolant')" style="flex:1">✅ Nivel OK — Continuar</button>`
     }
@@ -528,7 +706,7 @@ function buildCoolant() {
 
 // ─── FUEL ───
 function buildFuel() {
-  const lvl = S.fuelRand;
+  const lvl = S.fuel;
   const isLow = lvl < 25;
   const fillW = Math.round(lvl);
   const hasWaterIssue = ISSUES['fuel'] === 'water';
@@ -541,7 +719,7 @@ function buildFuel() {
       </div>
       ${!S.fuelWaterDrained ? `
       <div style="font-size:0.75rem; color:var(--amber); margin-top:8px;">⚠ Agua detectada en el fondo.</div>
-      <button class="btn-primary btn-red" style="padding: 8px 16px; font-size: 0.8rem; margin-top: 10px;" onclick="drainFuelWater()" ${!S.loto.applied ? 'disabled title="Se requiere LOTO para intervenir"' : ''}>DRENAR AGUA</button>
+      <button class="btn-primary btn-red" style="padding: 8px 16px; font-size: 0.8rem; margin-top: 10px;" onclick="drainFuelWater()" ${!S.loto.applied ? 'disabled' : ''}>${!S.loto.applied ? '🔒 REQUIERE LOTO' : 'DRENAR AGUA'}</button>
       ` : `
       <div style="font-size:0.75rem; color:var(--green); margin-top:8px;">✅ Separador drenado.</div>
       `}
@@ -549,8 +727,8 @@ function buildFuel() {
   ` : '';
 
   const actionButton = hasWaterIssue ? 
-    `<button class="btn-primary btn-amber" onclick="completeZone('fuel',true)" style="flex:1" ${!S.fuelWaterDrained ? 'disabled' : ''}>${S.fuelWaterDrained ? '✅ Registrar Drenaje' : 'Drenaje Requerido'}</button>` :
-    isLow ? `<button class="btn-primary btn-amber" onclick="completeZone('fuel',true)" style="flex:1">⚠️ Solicitar recarga — Registrar</button>` :
+    `<button class="btn-primary btn-amber" onclick="completeZone('fuel',true)" style="flex:1" ${!S.fuelWaterDrained || !S.loto.applied ? 'disabled' : ''}>${!S.loto.applied ? '🔒 Requiere LOTO para intervenir' : (S.fuelWaterDrained ? '✅ Registrar Drenaje' : 'Drenaje Requerido')}</button>` :
+    isLow ? `<button class="btn-primary btn-amber" onclick="completeZone('fuel',true)" style="flex:1" ${!S.loto.applied ? 'disabled' : ''}>${!S.loto.applied ? '🔒 Requiere LOTO para intervenir' : '⚠️ Solicitar recarga — Registrar'}</button>` :
     `<button class="btn-primary btn-green" onclick="completeZone('fuel')" style="flex:1">✅ Combustible OK — Continuar</button>`;
 
   return `
@@ -714,8 +892,8 @@ function buildAirfilter() {
   </div>
   <div class="modal-footer">
     ${hasIssue ?
-      `<button class="btn-primary btn-amber" onclick="completeZone('airfilter',true)" style="flex:1" ${!S.loto.applied ? 'disabled title="Se requiere LOTO para intervenir"' : ''}>
-        🔧 Reemplazar elemento filtrante
+      `<button class="btn-primary btn-amber" onclick="completeZone('airfilter',true)" style="flex:1" ${!S.loto.applied ? 'disabled' : ''}>
+        ${!S.loto.applied ? '🔒 Requiere LOTO para intervenir' : '🔧 Reemplazar elemento filtrante'}
        </button>` :
       `<button class="btn-primary btn-green" onclick="completeZone('airfilter')" style="flex:1">✅ Filtro OK — Continuar</button>`
     }
@@ -764,8 +942,8 @@ function buildExhaust() {
   </div>
   <div class="modal-footer">
     ${hasIssue ?
-      `<button class="btn-primary btn-red" onclick="completeZone('exhaust',true)" style="flex:1" ${!S.loto.applied ? 'disabled title="Se requiere LOTO para intervenir"' : ''}>
-        🔧 Apretar abrazadera — Registrar
+      `<button class="btn-primary btn-red" onclick="completeZone('exhaust',true)" style="flex:1" ${!S.loto.applied ? 'disabled' : ''}>
+        ${!S.loto.applied ? '🔒 Requiere LOTO para intervenir' : '🔧 Apretar abrazadera — Registrar'}
        </button>` :
       `<button class="btn-primary btn-green" onclick="completeZone('exhaust')" style="flex:1">✅ Escape OK — Continuar</button>`
     }
@@ -890,8 +1068,8 @@ function buildBelts() {
   </div>
   <div class="modal-footer">
     ${hasIssue ?
-      `<button class="btn-primary btn-amber" onclick="completeZone('belts',true)" style="flex:1" ${!S.loto.applied ? 'disabled title="Se requiere LOTO para intervenir"' : ''}>
-        🔧 Reemplazar correa
+      `<button class="btn-primary btn-amber" onclick="completeZone('belts',true)" style="flex:1" ${!S.loto.applied ? 'disabled' : ''}>
+        ${!S.loto.applied ? '🔒 Requiere LOTO para intervenir' : '🔧 Reemplazar correa'}
        </button>` :
       `<button class="btn-primary btn-green" onclick="completeZone('belts')" style="flex:1">✅ Correas OK — Continuar</button>`
     }
@@ -947,8 +1125,8 @@ function buildLeaks() {
   </div>
   <div class="modal-footer">
     ${hasIssue ?
-      `<button class="btn-primary btn-red" onclick="completeZone('leaks',true)" style="flex:1" ${!S.loto.applied ? 'disabled title="Se requiere LOTO para intervenir"' : ''}>
-        🔧 Apretar conexión y limpiar
+      `<button class="btn-primary btn-red" onclick="completeZone('leaks',true)" style="flex:1" ${!S.loto.applied ? 'disabled' : ''}>
+        ${!S.loto.applied ? '🔒 Requiere LOTO para intervenir' : '🔧 Apretar conexión y limpiar'}
        </button>` :
       `<button class="btn-primary btn-green" onclick="completeZone('leaks')" style="flex:1">✅ Sin Fugas — Continuar</button>`
     }
@@ -1262,8 +1440,10 @@ function toggleLotoState(apply) {
         radioDesc.textContent = 'Notifique al personal antes de iniciar procedimientos de bloqueo.';
         radioDesc.style.color = 'var(--dim)';
 
-        toggleBatteryConnect(); // This will re-energize the panel
-        completeZone('loto', false); // Mark as "undone"
+        // Corregido: re-energizar manualmente para evitar invertir la variable por error
+        document.getElementById('panel-deenergized').style.display = 'none';
+        elog('LOTO: Batería reconectada. Panel de control energizado.', 'info');
+        completeZone('loto', false);
     }
 }
 
@@ -1281,8 +1461,8 @@ function afterModalOpen(key) {
     }
     // Fuel
     if (key==='fuel') {
-      document.getElementById('ff-fill').style.width = S.fuelRand+'%';
-      document.getElementById('ff-needle').style.left = S.fuelRand+'%';
+      document.getElementById('ff-fill').style.width = S.fuel+'%';
+      document.getElementById('ff-needle').style.left = S.fuel+'%';
     }
     // Battery
     if (key==='battery') {
@@ -1391,7 +1571,7 @@ function afterModalOpen(key) {
             const nameInput = document.getElementById('loto-name-input');
             const confirmBtn = document.getElementById('loto-confirm-btn');
             if (nameInput && confirmBtn) {
-                nameInput.onkeyup = () => { confirmBtn.disabled = nameInput.value.trim().length < 3; };
+                nameInput.oninput = () => { confirmBtn.disabled = nameInput.value.trim().length < 3; };
             }
         }
     }
@@ -1440,6 +1620,9 @@ function setupLotoDragDrop() {
 // ══════════════════════════════════════════════
 function completeZone(key, hasIssue) {
   if (key === 'loto') {
+    const floatingBtn = document.getElementById('btn-loto-floating');
+    const floatingLbl = document.getElementById('lbl-loto-floating');
+
     // Special handling for LOTO completion/cancellation
     if (hasIssue) { // This means LOTO was applied
         S.loto.applied = true;
@@ -1453,8 +1636,16 @@ function completeZone(key, hasIssue) {
         radioDesc.textContent = 'Equipo bloqueado. Notifique al personal para iniciar el desbloqueo.';
         radioDesc.style.color = 'var(--dim)';
 
+        if (floatingBtn) {
+            floatingBtn.classList.add('active');
+            floatingLbl.textContent = 'EQUIPO BLOQUEADO';
+        }
     } else { // This means LOTO was removed
         delete DONE[key];
+        if (floatingBtn) {
+            floatingBtn.classList.remove('active');
+            floatingLbl.textContent = 'INICIAR LOTO';
+        }
     }
   } else {
     DONE[key] = hasIssue ? 'issue' : 'ok';
@@ -1465,26 +1656,7 @@ function completeZone(key, hasIssue) {
   
   closeModal();
 
-  // Update hotspot
-  const hs = document.getElementById('hs-'+key);
-  if (hs) {
-    hs.classList.remove('done', 'fixed');
-    if (DONE[key]) {
-        hs.classList.add(DONE[key] === 'issue' ? 'fixed' : 'done');        
-        // Allow LOTO hotspot to be clicked always to show status/unlock
-        if (key !== 'loto') { hs.onclick = null; }
-        const icon = hs.querySelector('.hs-icon');
-        if (icon) icon.textContent = '';
-    } else {
-        // Reset hotspot if LOTO is removed
-        hs.onclick = () => openModal(key);
-        const icon = hs.querySelector('.hs-icon');
-        if (icon) {
-            const originalIcon = STEPS.find(step => step.key === key)?.icon || '🔒';
-            icon.textContent = originalIcon;
-        }
-    }
-  }
+  // La retroalimentación visual ahora se maneja en el checklist de la derecha.
 
   // Update step card
   const card = document.getElementById('sc-'+key);
@@ -1677,11 +1849,13 @@ function toggleEStop() {
     if (S.engine || S.starting) {
       S.engine = false; S.starting = false; S.stopping = false;
       stopValues();
+      startCooldown(); // Permitir que el motor se enfríe de forma natural
       clearDisps();
       document.getElementById('run-strip').classList.remove('on');
       document.getElementById('chip-eng').textContent='MOTOR: BLOQUEADO';
       document.getElementById('chip-eng').className='stat-chip chip-err';
       clearTimeout(S.autoStartT); clearTimeout(S.autoStopT);
+      if (S.beltBreakTimer) { clearTimeout(S.beltBreakTimer); S.beltBreakTimer = null; }
     }
     S.displayPage = 1; // Volver a la página del motor
     updateDisplayPage();
@@ -1758,8 +1932,8 @@ function startEngine() {
   const lowOilThreshold = 30; // %
 
   const attemptStart = () => {
+    if (!S.starting || S.estop) return; // Evitar arranques fantasma
     S.crankingAttempts++;
-    if (S.estop) return;
 
     // Check for critical pre-start issues
     if (S.oilLevel < lowOilThreshold && !DONE['oil']) {
@@ -1826,6 +2000,7 @@ function startEngine() {
 
 function stopEngine() {
   if (!S.engine&&!S.starting) return;
+  if (S.beltBreakTimer) { clearTimeout(S.beltBreakTimer); S.beltBreakTimer = null; }
   S.stopping=true; S.engine=false;
   stopValues();
   startCooldown();
@@ -1869,6 +2044,7 @@ function resetFault() {
 
 let coolDownInt = null; // Moved outside for global access
 function startCooldown(loadAtShutdown = 0) { // Added loadAtShutdown parameter
+  if (coolDownInt) clearInterval(coolDownInt); // Evitar fuga de memoria con multiples intervalos
   coolDownInt = setInterval(() => {
     if (S.engine) { // Si el motor vuelve a arrancar, se detiene el enfriamiento
       clearInterval(coolDownInt);
@@ -1889,6 +2065,7 @@ function startCooldown(loadAtShutdown = 0) { // Added loadAtShutdown parameter
 
 let valInt=null;
 function startValues() {
+  if (valInt) clearInterval(valInt); // Evitar superposición de intervalos físicos
   S.targetV = NOMINAL_V;
   S.targetHz = NOMINAL_HZ;
   S.actualV = 0;
@@ -1898,6 +2075,36 @@ function startValues() {
   valInt = setInterval(updateVals, 200);
 }
 function stopValues() { clearInterval(valInt); valInt=null; }
+
+function updateMeshColors() {
+    if (!generadorModel) return;
+    generadorModel.traverse((child) => {
+        if (child.isMesh) {
+            let node = child;
+            let key = null;
+            while (node) {
+                let nombreNormalizado = (node.name || '').replace(/_/g, ' ');
+                key = MESH_TO_KEY_MAP[node.name] || MESH_TO_KEY_MAP[nombreNormalizado];
+                if (key) break;
+                node = node.parent;
+            }
+            if (key) {
+                if (child.material && child.material.emissive) {
+                    if (!child.userData.materialCloned) {
+                        child.material = child.material.clone();
+                        child.userData.materialCloned = true;
+                        child.userData.originalEmissive = child.material.emissive.getHex();
+                    }
+                    child.userData.mapKey = key;
+                    if (child === hoveredMesh) return; // Omitir el actual si el ratón está encima
+                    if (DONE[key] === 'ok') child.material.emissive.setHex(0x002208); // Tono verde permanente
+                    else if (DONE[key] === 'issue') child.material.emissive.setHex(0x220800); // Tono rojo permanente
+                    else child.material.emissive.setHex(child.userData.originalEmissive);
+                }
+            }
+        }
+    });
+}
 
 // Funciones utilitarias originales
 function rv(b,r) { return (b+(Math.random()-.5)*r).toFixed(1); }
@@ -1914,10 +2121,10 @@ function updateLoad() {
   // Simular transitorio (Caída de voltaje y Hz al meter carga de golpe)
   if (S.engine && !S.fault) {
     const delta = S.loadPct - oldPct;
-    if (delta > 10) {
+    if (Math.abs(delta) > 10) {
       S.actualV -= (delta * 0.4);
       S.actualHz -= (delta * 0.05);
-      elog(`Escalón de carga aplicado (+${delta}%). Ajustando AVR y gobernador...`, 'warn');
+      elog(`Escalón de carga de ${delta > 0 ? '+' : ''}${delta}%. Ajustando AVR y gobernador...`, 'warn');
     }
   }
 }
@@ -1926,12 +2133,16 @@ function updateVals() {
   if (!S.engine || S.fault) return;
 
   // --- Realismo de Temperatura ---
-  let tempLoadFactor = (S.loadPct / 100) * 10; // Carga al 100% sube 10°C sobre temp. base
-  if (S.radiatorBlocked) tempLoadFactor += 15; // Radiator issue adds 15°C
-  if (S.coolantLevel < 40 && !DONE['coolant']) tempLoadFactor += 20; // Low coolant adds 20°C
+  // Termodinámica avanzada con válvula termostática
+  let thermostatOpen = Math.max(0.1, Math.min(1.0, (S.engineTemp - 80) / 10)); // Abre entre 80C y 90C
+  let coolingFlow = thermostatOpen;
+  if (S.radiatorBlocked) coolingFlow *= 0.6;
+  if (S.coolantLevel < 40 && !DONE['coolant']) coolingFlow *= 0.5;
+  if (S.beltBroken) coolingFlow *= 0.05; // Sin bomba de agua
 
-  const targetTemp = OPERATING_TEMP + tempLoadFactor;
-  S.engineTemp += (targetTemp - S.engineTemp) * 0.015; // Velocidad de calentamiento
+  const heatGenerated = 5 + (S.loadPct / 100) * 45; // Calor generado dinámico (5 a 50)
+  const targetTemp = AMBIENT_TEMP + (heatGenerated / coolingFlow) * 1.26;
+  S.engineTemp += (targetTemp - S.engineTemp) * 0.02; // Inercia térmica del bloque
 
   // High Temp Warning/Fault
   if (S.engineTemp > HIGH_TEMP_WARNING_THRESHOLD && !S.highTempWarning) {
@@ -1944,13 +2155,20 @@ function updateVals() {
   const tempFactor = Math.max(0, Math.min(1, (S.engineTemp - AMBIENT_TEMP) / (OPERATING_TEMP - AMBIENT_TEMP)));
   const basePressure = 70 - (tempFactor * 20); // 70 PSI en frío, 50 en caliente
   const loadPressure = (S.loadPct / 100) * 10; // Carga al 100% sube 10 PSI
-  S.oilPressure = basePressure + loadPressure;
+  
+  let oilLevelFactor = 1.0;
+  if (S.oilLevel < 35 && !DONE['oil']) {
+      // Pérdida exponencial de presión por nivel bajo
+      oilLevelFactor = Math.max(0, S.oilLevel / 35);
+  }
+  S.oilPressure = (basePressure + loadPressure) * Math.pow(oilLevelFactor, 2);
 
   // --- Realismo de Consumo y Horas ---
   let fuelRate = 5 + (S.loadPct / 100) * 45; // 5 L/h en ralentí, 50 L/h a plena carga
   if (S.fuelLeakRate > 0 && !DONE['leaks']) fuelRate += S.fuelLeakRate; // Add leak rate if issue not fixed
 
-  S.fuel = Math.max(0, S.fuel - (fuelRate / 3600) * (200/1000)); // Consumo por intervalo de 200ms (200ms update interval)
+  // Consumo físico: S.fuel está en %, por lo que 500L = 100%. fuelRate(L/h) equivale a (fuelRate/5) %/h.
+  S.fuel = Math.max(0, S.fuel - ((fuelRate / 5) / 3600) * 0.2); // Actualización cada 200ms
   S.engineHours += (200 / 1000 / 3600); // Intervalo de 200ms en horas
 
   // --- NUEVO: Fallas por niveles bajos ---

@@ -108,6 +108,7 @@ body::after {
   grid-template-columns: 1fr 400px;
   gap: 20px;
   align-items: start;
+  max-width: 100%;
 }
 
 /* ─── GENERATOR CANVAS ─── */
@@ -195,6 +196,34 @@ body::after {
 .hotspot.fixed .hs-label  { color:var(--amber); border-color:#ffa50022; }
 .hotspot.issue .hs-label  { color:var(--red); border-color:#ff2d4422; }
 
+/* NUEVO: Botón LOTO flotante en el visor 3D */
+.btn-loto-floating {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  color: var(--cyan);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-loto-floating:hover { background: var(--bg3); border-color: var(--cyan); box-shadow: var(--gb); transform: translateY(-2px); }
+.btn-loto-floating:active { transform: translateY(0); }
+.btn-loto-floating.active { background: #ff2d441a; border-color: var(--red); color: var(--red); box-shadow: var(--gr); }
+.btn-loto-floating.active .loto-icon { animation: blink 1.5s infinite; }
+
 /* instruction bubble */
 .instr-bubble {
   background:linear-gradient(135deg,#00b4ff0d,#00eeff06);
@@ -206,7 +235,7 @@ body::after {
 .instr-icon { font-size:1.4rem; flex-shrink:0; }
 
 /* ─── RIGHT PANEL ─── */
-.cl-right { display:flex; flex-direction:column; gap:14px; }
+.cl-right { display:flex; flex-direction:column; gap:14px; min-width: 0; }
 
 /* Step card */
 .step-card {
@@ -765,6 +794,10 @@ body::after {
   justify-content: center;
   text-align: center;
   border-radius: 14px;
+  cursor: pointer; /* Permite hacer clic para la prueba de verificación de energía cero */
+}
+.panel-deenergized-overlay:active {
+  background: #0a101ae6;
 }
 .pde-icon { font-size: 4rem; }
 .pde-text { font-family: 'Orbitron', monospace; font-size: 1.2rem; color: var(--red); margin-top: 1rem; line-height: 1.5; text-shadow: var(--gr); }
@@ -1013,6 +1046,10 @@ body.exam-mode .hotspot:not(.done):not(.fixed):hover .hs-ring {
   border-color: var(--cyan);
   box-shadow: var(--gb);
   transform: scale(1.15);
+}
+body.exam-mode .hotspot:not(.done):not(.fixed):hover .hs-label {
+  display: block;
+}
 }
 body.exam-mode .hotspot:not(.done):not(.fixed):hover .hs-label {
   display: block;

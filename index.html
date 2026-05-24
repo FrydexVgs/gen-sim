@@ -5,6 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GEN-SIM PRO · Simulador Grupo Electrógeno</title>
 <link rel="stylesheet" href="simulador.css">
+<!-- Cargar librerías de Three.js Clásico (r128 global) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<!-- Estilos para el visor 3D de Three.js -->
+<style>
+  #gen-viewer {
+    width: 100%;
+    height: 550px; /* O la altura que prefieras */
+    background-color: var(--bg1);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+  }
+</style>
 </head>
 <body>
   
@@ -76,73 +93,12 @@
           <span id="gc-status">Esperando inspección...</span>
         </div>
         <div class="gen-wrap" id="gen-wrap">
-          <img src="GenSet.png" alt="Grupo Electrógeno" style="width: 100%; height: auto; display: block; border-radius: 8px;">
-
-          <div class="hotspot" id="hs-loto"      style="width:44px;height:44px;left:40%;top:60%"  onclick="openModal('loto')">
-            <div class="hs-ring"><span class="hs-icon">🔒</span></div>
-            <div class="hs-label">LOTO</div>
-          </div>
-
-          <div class="hotspot" id="hs-oil"       style="width:44px;height:44px;left:26%;top:50%"  onclick="openModal('oil')">
-            <div class="hs-ring"><span class="hs-icon">🛢️</span></div>
-            <div class="hs-label">BAYONETA</div>
-          </div>
-
-          <div class="hotspot" id="hs-coolant"   style="width:40px;height:40px;left:12%;top:45%"  onclick="openModal('coolant')">
-            <div class="hs-ring"><span class="hs-icon">🌡️</span></div>
-            <div class="hs-label">REFRIG.</div>
-          </div>
-
-          <div class="hotspot" id="hs-radiator"  style="width:44px;height:44px;left:12%;top:30%"  onclick="openModal('radiator')">
-            <div class="hs-ring"><span class="hs-icon">💨</span></div>
-            <div class="hs-label">RADIADOR</div>
-          </div>
-
-          <div class="hotspot" id="hs-airfilter" style="width:44px;height:44px;left:50%;top:25%" onclick="openModal('airfilter')">
-            <div class="hs-ring"><span class="hs-icon">🔍</span></div>
-            <div class="hs-label">FILTRO AIRE</div>
-          </div>
-
-          <div class="hotspot" id="hs-exhaust"   style="width:40px;height:40px;left:30%;top:20%"  onclick="openModal('exhaust')">
-            <div class="hs-ring"><span class="hs-icon">💨</span></div>
-            <div class="hs-label">ESCAPE</div>
-          </div>
-
-          <div class="hotspot" id="hs-fuel"      style="width:44px;height:44px;left:70%;top:70%"  onclick="openModal('fuel')">
-            <div class="hs-ring"><span class="hs-icon">⛽</span></div>
-            <div class="hs-label">TANQUE</div>
-          </div>
-
-          <div class="hotspot" id="hs-battery"   style="width:44px;height:44px;left:55%;top:68%" onclick="openModal('battery')">
-            <div class="hs-ring"><span class="hs-icon">🔋</span></div>
-            <div class="hs-label">BATERÍA</div>
-          </div>
-
-          <div class="hotspot" id="hs-belts"     style="width:44px;height:44px;left:20%;top:38%" onclick="openModal('belts')">
-            <div class="hs-ring"><span class="hs-icon">⚙️</span></div>
-            <div class="hs-label">CORREAS</div>
-          </div>
-
-          <div class="hotspot" id="hs-leaks" style="width:44px;height:44px;left:30%;top:75%" onclick="openModal('leaks')">
-            <div class="hs-ring"><span class="hs-icon">💧</span></div>
-            <div class="hs-label">INSP. FUGAS</div>
-          </div>
-
-          <div class="hotspot" id="hs-breakers" style="width:44px;height:44px;left:85%;top:30%" onclick="openModal('breakers')">
-            <div class="hs-ring"><span class="hs-icon">⚡</span></div>
-            <div class="hs-label">BREAKERS</div>
-          </div>
-
-          <div class="hotspot" id="hs-environment" style="width:44px;height:44px;left:50%;top:85%" onclick="openModal('environment')">
-            <div class="hs-ring"><span class="hs-icon">🧹</span></div>
-            <div class="hs-label">ENTORNO</div>
-          </div>
-
-          <div class="hotspot" id="hs-wiring" style="display:none">
-            <div class="hs-ring"><span class="hs-icon"></span></div>
-            <div class="hs-label"></div>
-          </div>
-
+          <!-- Contenedor para Three.js Clásico -->
+          <div id="gen-viewer"></div>
+          <!-- Botón flotante para LOTO (especialmente útil en modo examen) -->
+          <button class="btn-loto-floating" id="btn-loto-floating" onclick="openModal('loto')">
+            <span class="loto-icon">🔒</span> <span id="lbl-loto-floating">INICIAR LOTO</span>
+          </button>
         </div>
       </div>
     </div>
