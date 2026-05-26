@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GEN-SIM PRO · Simulador Grupo Electrógeno</title>
+<title>Simulador Grupo Electrógeno</title>
 <link rel="stylesheet" href="simulador.css">
 <!-- Cargar librerías de Three.js Clásico (r128 global) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -29,8 +29,8 @@
   <div class="hdr-brand">
     <div class="hdr-logo">⚡</div>
     <div>
-      <div class="hdr-title">GEN·SIM PRO</div>
-      <div class="hdr-sub">Simulador · Grupo Electrógeno Diesel 250 kVA</div>
+      <div class="hdr-title">Simulador Gen-Set</div>
+      <div class="hdr-sub">Operacion y Mantenimiento de Grupos Electrógeno</div>
     </div>
   </div>
   <div class="hdr-stats">
@@ -57,31 +57,9 @@
     <span>Modo Examen</span>
   </div>
 
-  <div class="score-bar fadeup">
-    <div class="score-item">
-      <div class="score-val" id="sc-done">0</div>
-      <div class="score-lbl">Completados</div>
-    </div>
-    <div class="score-divider"></div>
-    <div class="score-item">
-      <div class="score-val" id="sc-issues" style="color:var(--amber)">0</div>
-      <div class="score-lbl">Anomalías</div>
-    </div>
-    <div class="score-divider"></div>
-    <div class="score-item">
-      <div class="score-timer" id="sc-time">00:00</div>
-      <div class="score-lbl">Tiempo</div>
-    </div>
-    <div class="score-divider"></div>
-    <div class="score-prog">
-      <div class="prog-lbl"><span>PROGRESO</span><span id="sc-pct">0%</span></div>
-      <div class="prog-track"><div class="prog-fill" id="sc-bar" style="width:0%"></div></div>
-    </div>
-  </div>
-
   <div class="instr-bubble fadeup">
     <div class="instr-icon">👆</div>
-    <div>Haz clic en los <strong>puntos azules parpadeantes</strong> sobre el generador para inspeccionar cada componente. Algunos sistemas presentarán anomalías que deberás identificar y corregir antes de poder arrancar el equipo. Completa los 11 puntos del checklist.</div>
+    <div>Haz clic en los <strong>componentes</strong> sobre el generador para inspeccionarlos. Algunos sistemas presentarán anomalías que deberás identificar y corregir antes de poder arrancar el equipo. Completa los puntos del checklist.</div>
   </div>
 
   <div class="cl-layout">
@@ -89,7 +67,7 @@
     <div>
       <div class="gen-canvas fadeup">
         <div class="gen-canvas-title">
-          <span>GRUPO ELECTRÓGENO DIESEL · VISTA LATERAL</span>
+          <span>GRUPO ELECTRÓGENO DIESEL</span>
           <span id="gc-status">Esperando inspección...</span>
         </div>
         <div class="gen-wrap" id="gen-wrap">
@@ -127,7 +105,7 @@
     <div class="ctrl-face fadeup">
       <div class="ctrl-brand-hdr">
         <div class="ctrl-brand-name">DEEPSEA DSE 7320</div>
-        <div class="ctrl-brand-model">AUTOMATIC MAINS FAILURE CONTROLLER · REV. 4.2</div>
+        <div class="ctrl-brand-model">AUTOMATIC MAINS FAILURE CONTROLLER</div>
       </div>
 
       <!-- NUEVO: Overlay para panel desenergizado -->
@@ -261,7 +239,7 @@
       </div>
 
       <div class="r-card">
-        <div class="r-card-hdr"><div class="r-card-title">🏭 BANCO DE CARGA DINÁMICO</div></div>
+        <div class="r-card-hdr"><div class="r-card-title">🏭 BANCO DE CARGA</div></div>
         <div class="r-card-body">
           <div class="load-slider-wrap">
             <label style="font-size:0.8rem; color:var(--cyan); font-weight:bold;">DEMANDA DE LA INSTALACIÓN</label>

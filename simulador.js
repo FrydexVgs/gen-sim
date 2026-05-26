@@ -6,7 +6,7 @@ const S = {
   mode: 'off', engine: false, grid: false, checkDone: false,
   fault: false, fuel: 75, starting: false, stopping: false,
   autoStartT: null, autoStopT: null, gridLostAt: null, logStart: Date.now(),
-  issuesFound: 0, timerStart: Date.now(), timerInt: null,
+  issuesFound: 0,
   // Valores iniciales de niveles, influenciados por ISSUES
   oilLevel: 0, // Se inicializa después de ISSUES
   coolantLevel: 0, // Se inicializa después de ISSUES
@@ -139,7 +139,6 @@ function init() {
   document.body.classList.toggle('exam-mode', S.examMode);
   document.getElementById('exam-mode-switch').classList.toggle('on', S.examMode);
   renderSteps();
-  startTimer();
   document.getElementById('d-hours').textContent = S.engineHours.toFixed(1);
   document.getElementById('d-batt').textContent = S.battVolt.toFixed(1); // Initial battery voltage
   updateDisplayPage();
@@ -182,6 +181,7 @@ function setupThreeJSViewer() {
     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.outputEncoding = THREE.sRGBEncoding; // Mejora la renderización de colores en modelos GLTF
     container.appendChild(renderer.domElement);
 
     // 3. Luces
@@ -190,6 +190,9 @@ function setupThreeJSViewer() {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(5, 10, 7);
     scene.add(directionalLight);
+    // Luz hemisférica para rellenar las sombras y darle más volumen
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+    scene.add(hemiLight);
 
     // 4. Controles (OrbitControls)
     controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -391,16 +394,6 @@ function setupRadio() {
     pttBtn.addEventListener('mouseleave', () => { if (!pttBtn.classList.contains('done')) transmitMsg.style.display = 'none'; });
     pttBtn.addEventListener('touchstart', startTransmit, { passive: false });
     pttBtn.addEventListener('touchend', endTransmit);
-}
-
-function startTimer() {
-  S.timerInt = setInterval(() => {
-    if (S.checkDone) return;
-    const elapsed = Math.floor((Date.now() - S.timerStart) / 1000);
-    const m = String(Math.floor(elapsed/60)).padStart(2,'0');
-    const s = String(elapsed%60).padStart(2,'0');
-    document.getElementById('sc-time').textContent = m+':'+s;
-  }, 1000);
 }
 
 function renderSteps() {
@@ -1760,26 +1753,16 @@ function updateProgress() {
   const done = Object.keys(DONE).length;
   const pct = Math.round(done/total*100);
 
-  document.getElementById('sc-done').textContent = done;
-  document.getElementById('sc-issues').textContent = S.issuesFound;
-  document.getElementById('sc-pct').textContent = pct+'%';
-  document.getElementById('sc-bar').style.width = pct+'%';
-
   // Header chip
   document.getElementById('chip-cl').textContent = `CHECKLIST: ${done}/${total}`;
   document.getElementById('chip-cl').className = done===total ? 'stat-chip chip-ok' : 'stat-chip chip-warn';
 
   if (done === total) {
     S.checkDone = true;
-    clearInterval(S.timerInt);
     document.getElementById('gc-status').textContent = '✅ Todos los sistemas verificados';
     document.getElementById('gc-status').style.color = 'var(--green)';
 
-    const elapsed = Math.floor((Date.now() - S.timerStart)/1000);
-    const m = String(Math.floor(elapsed/60)).padStart(2,'0');
-    const s = String(elapsed%60).padStart(2,'0');
-
-    const sub = `Tiempo de inspección: ${m}:${s} · ${S.issuesFound} anomalía(s) detectada(s) y corregida(s). El equipo está listo para ser arrancado.`;
+    const sub = `${S.issuesFound} anomalía(s) detectada(s) y corregida(s). El equipo está listo para ser arrancado.`;
     document.getElementById('complete-sub').textContent = sub;
     document.getElementById('complete-card').classList.add('show');
     document.getElementById('panel-badge').classList.add('show');

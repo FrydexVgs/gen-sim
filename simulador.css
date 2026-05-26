@@ -89,22 +89,6 @@ body {
 .sec { display:none; }
 .sec.active { display:block; }
 
-/* ─── SCORE BAR ─── */
-.score-bar {
-  background:var(--bg1); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:16px 24px; margin-bottom:18px;
-  display:flex; align-items:center; gap:20px;
-}
-.score-item { text-align:center; }
-.score-val { font-size:1.5rem; font-weight:500; color:var(--cyan); }
-.score-lbl { font-size:0.7rem; color:var(--dim); letter-spacing:0.5px; text-transform:uppercase; margin-top:2px; }
-.score-divider { width:1px; height:40px; background:var(--border); }
-.score-timer { font-size:1.4rem; color:var(--amber); font-variant-numeric: tabular-nums; }
-.score-prog { flex:1; }
-.prog-track { height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:6px; }
-.prog-fill { height:100%; border-radius:4px; background:var(--blue); transition:width 0.6s ease; }
-.prog-lbl { font-size:0.75rem; color:var(--dim); display:flex; justify-content:space-between; font-weight: 500; }
-
 /* ─── CHECKLIST LAYOUT ─── */
 .cl-layout {
   display: grid;
@@ -1019,7 +1003,6 @@ input[type=range] { width: 100%; margin: 10px 0; accent-color: var(--cyan); }
     flex-shrink: 0;
 }
 
-body.exam-mode .score-bar,
 body.exam-mode .cl-right,
 body.exam-mode .instr-bubble {
   display: none;
