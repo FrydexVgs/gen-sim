@@ -273,7 +273,9 @@ function animate() {
 
 function setupThreeJSInteraction(container) {
     // INTERACCIÓN DE HOVER (Cursor de Puntero)
-    container.addEventListener('mousemove', (event) => {
+    container.addEventListener('pointermove', (event) => {
+        // Optimización: Solo evaluar hover visual si es un mouse (ahorra CPU en táctil)
+        if (event.pointerType !== 'mouse') return;
         const rect = container.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
@@ -304,8 +306,20 @@ function setupThreeJSInteraction(container) {
         container.style.cursor = isInteractive ? 'pointer' : 'grab';
     });
 
-    // INTERACCIÓN DE CLIC (El Raycaster Clásico que propusiste)
-    container.addEventListener('click', (event) => {
+    // INTERACCIÓN DE CLIC / TOUCH (Soporte cruzado para móviles y OrbitControls)
+    let ptrStartX = 0;
+    let ptrStartY = 0;
+
+    container.addEventListener('pointerdown', (event) => {
+        ptrStartX = event.clientX;
+        ptrStartY = event.clientY;
+    });
+
+    container.addEventListener('pointerup', (event) => {
+        // Distinguir entre toque/clic directo y un arrastre para rotar la cámara
+        const dist = Math.abs(event.clientX - ptrStartX) + Math.abs(event.clientY - ptrStartY);
+        if (dist > 10) return; // Si movió el dedo más de 10px, fue rotación, ignoramos
+
         const rect = container.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
@@ -1564,7 +1578,9 @@ function afterModalOpen(key) {
         let passes = 0;
         const passesNeeded = 25; // Needs more passes than clicks
 
-        debris.addEventListener('mouseover', () => {
+        // Handler unificado para pasar el mouse y deslizar el dedo en táctil
+        const onInteract = (e) => {
+            if (e.type === 'touchmove') e.preventDefault();
             if (passes >= passesNeeded) return;
             
             passes++;
@@ -1583,7 +1599,9 @@ function afterModalOpen(key) {
                 }
                 fixBtn.disabled = false;
             }
-        });
+        };
+        debris.addEventListener('mouseover', onInteract);
+        debris.addEventListener('touchmove', onInteract, { passive: false });
     }
     // NUEVO: Lógica para el modal LOTO en sus diferentes etapas
     if (key === 'loto' && !S.loto.applied) {

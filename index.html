@@ -14,14 +14,25 @@
 <style>
   #gen-viewer {
     width: 100%;
-    height: 550px; /* O la altura que prefieras */
+    height: 55vh; /* Se adapta dinámicamente si está embebido en un iframe */
+    min-height: 350px;
+    max-height: 600px;
     background-color: var(--bg1);
     border-radius: 12px;
     border: 1px solid var(--border);
     overflow: hidden;
     position: relative;
+    touch-action: none; /* CLAVE: Evita que el navegador móvil haga scroll de página al rotar el 3D */
   }
 </style>
+<!-- Polyfill para soporte nativo de Drag & Drop (LOTO y Entorno) en pantallas táctiles -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
+<script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+<script>
+  MobileDragDrop.polyfill({ holdToDrag: 150 }); // Mantiene 150ms presionado para iniciar arrastre
+  // Mitiga el scroll nativo durante el Drag & Drop en iOS/Android
+  window.addEventListener('touchmove', function() {}, {passive: false});
+</script>
 </head>
 <body>
   
