@@ -45,6 +45,7 @@
     </div>
   </div>
   <div class="hdr-stats">
+    <button class="stat-chip" style="cursor: pointer; background: var(--bg2); border-color: var(--border); color: var(--txt);" onclick="resetSimulator()">🔄 REINICIAR</button>
     <div class="stat-chip chip-off" id="chip-cl">CHECKLIST: 0/11</div>
     <div class="stat-chip chip-off" id="chip-eng">MOTOR: APAGADO</div>
     <div class="stat-chip chip-off" id="chip-grid">RED: AUSENTE</div>
@@ -52,13 +53,13 @@
 </div>
 
 <div class="tabs">
-  <div class="tab active" id="tab-cl" onclick="goTab('cl')">🔍 Pre-Arranque &amp; Checklist</div>
-  <div class="tab" id="tab-panel" onclick="goTab('panel')">🎛️ Panel Controlador <span class="tab-badge" id="panel-badge">!</span></div>
+  <div class="tab" id="tab-cl" onclick="goTab('cl')">🔍 Pre-Arranque &amp; Checklist</div>
+  <div class="tab active" id="tab-panel" onclick="goTab('panel')">🎛️ Panel Controlador <span class="tab-badge" id="panel-badge">!</span></div>
 </div>
 
 <div class="main">
 
-<div class="sec active" id="sec-cl">
+<div class="sec" id="sec-cl">
 
   <div class="exam-toggle-wrap">
     <span>Modo Guiado</span>
@@ -105,7 +106,7 @@
   </div>
 </div>
 
-<div class="sec" id="sec-panel">
+<div class="sec active" id="sec-panel">
 
   <div class="cl-warn-banner" id="cl-warn">
     ⚠️ <span>El checklist no está completo. Completa la inspección pre-arranque para operar con seguridad.</span>
@@ -231,6 +232,37 @@
           </div>
           <div class="auto-info">
             En modo <strong>AUTO</strong>: al fallar la red el controlador espera <strong>10 s</strong> de confirmación, luego arranca y transfiere la carga. Al regresar la red, espera <strong>30 s</strong> de enfriamiento y devuelve la carga.
+          </div>
+        </div>
+      </div>
+
+      <!-- NUEVO: Panel de ATS -->
+      <div class="r-card">
+        <div class="r-card-hdr"><div class="r-card-title">🔀 TABLERO DE TRANSFERENCIA (ATS)</div></div>
+        <div class="r-card-body">
+          <div class="ats-row">
+            <span class="ats-lbl">MODO ATS</span>
+            <div class="mode-btns" style="flex:1; margin-left:10px;">
+              <button class="mode-btn on" id="ats-m-auto" onclick="setAtsMode('auto')">AUTO</button>
+              <button class="mode-btn" id="ats-m-manual" onclick="setAtsMode('manual')">MANUAL</button>
+            </div>
+          </div>
+          <div class="ats-row" style="margin-top:10px;">
+            <span class="ats-lbl">POSICIÓN</span>
+            <div class="mode-btns" style="flex:2; margin-left:10px;">
+              <button class="mode-btn on" id="ats-p-1" onclick="setAtsPos(1)">1 (RED)</button>
+              <button class="mode-btn" id="ats-p-0" onclick="setAtsPos(0)">0 (VACÍO)</button>
+              <button class="mode-btn" id="ats-p-2" onclick="setAtsPos(2)">2 (GEN)</button>
+            </div>
+          </div>
+          <div class="grid-toggle-row" style="margin-top:15px; border-top:1px solid var(--border); padding-top:15px; margin-bottom:5px;">
+            <div class="toggle-label">Breaker Principal (Generador)</div>
+            <div class="toggle-sw on" id="gen-breaker-sw" onclick="toggleGenBreaker()">
+              <div class="toggle-knob"></div>
+            </div>
+          </div>
+          <div id="ats-status-text" style="font-size:0.75rem; color:var(--dim); margin-top:5px; line-height:1.4;">
+            ATS en AUTO. Red eléctrica conectada a la carga.
           </div>
         </div>
       </div>

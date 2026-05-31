@@ -1,17 +1,21 @@
 // ══════════════════════════════════════════════
 //  STATE & VARIABLES
 // ══════════════════════════════════════════════
+const urlParams = new URLSearchParams(window.location.search);
+const forceChecklist = urlParams.has('checklist');
+
 const S = {
   examMode: true, // Por defecto en modo examen
-  mode: 'off', engine: false, grid: false, checkDone: false,
-  fault: false, fuel: 75, starting: false, stopping: false,
+  mode: forceChecklist ? 'off' : 'auto', 
+  engine: false, grid: !forceChecklist, checkDone: !forceChecklist,
+  fault: false, fuel: 85, starting: false, stopping: false,
   autoStartT: null, autoStopT: null, gridLostAt: null, logStart: Date.now(),
   issuesFound: 0,
   // Valores iniciales de niveles, influenciados por ISSUES
-  oilLevel: 0, // Se inicializa después de ISSUES
-  coolantLevel: 0, // Se inicializa después de ISSUES
-  fuelWaterDrained: false,
-  battVolt: 0, // Se inicializa después de ISSUES
+  oilLevel: 80, // Se inicializa después de ISSUES
+  coolantLevel: 80, // Se inicializa después de ISSUES
+  fuelWaterDrained: !forceChecklist,
+  battVolt: 25.2, // Se inicializa después de ISSUES
   // NUEVAS VARIABLES DE REALISMO
   engineTemp: 25.0,
   oilPressure: 0,
@@ -50,40 +54,57 @@ const S = {
   radiatorBlocked: false,
   displayPage: 1, // 0:gen, 1:engine, 2:grid
   displayPages: ['gen', 'engine', 'grid'],
+  // NUEVO: Variables ATS y Breaker
+  atsMode: 'auto',
+  atsPos: 1,
+  genBreaker: true,
 };
 
 const NOMINAL_KW = 200; // 250 kVA * 0.8 PF
 
 // Which zones randomly have issues
 const ISSUES = {};
-const possibleIssues = ['coolant','radiator','airfilter','exhaust','battery','belts','leaks','environment','breakers'];
-possibleIssues.forEach(k => {
-  if (Math.random() < 0.45) ISSUES[k] = true; // Slightly adjusted probability
-});
-// Force at least 3 issues to make it more interesting
-const ikeys = Object.keys(ISSUES);
-if (ikeys.length < 3) {
-    const pool = possibleIssues.filter(k => !ISSUES[k]);
-    while (Object.keys(ISSUES).length < 3 && pool.length > 0) {
-        const randomIndex = Math.floor(Math.random() * pool.length);
-        const issueToAdd = pool.splice(randomIndex, 1)[0];
-        ISSUES[issueToAdd] = true;
+
+if (forceChecklist) {
+    const possibleIssues = ['coolant','radiator','airfilter','exhaust','battery','belts','leaks','environment','breakers'];
+    possibleIssues.forEach(k => {
+      if (Math.random() < 0.45) ISSUES[k] = true; // Slightly adjusted probability
+    });
+    // Force at least 3 issues to make it more interesting
+    const ikeys = Object.keys(ISSUES);
+    if (ikeys.length < 3) {
+        const pool = possibleIssues.filter(k => !ISSUES[k]);
+        while (Object.keys(ISSUES).length < 3 && pool.length > 0) {
+            const randomIndex = Math.floor(Math.random() * pool.length);
+            const issueToAdd = pool.splice(randomIndex, 1)[0];
+            ISSUES[issueToAdd] = true;
+        }
     }
-}
 
-const fuelRng = Math.random();
-if (fuelRng < 0.25) {
-    ISSUES['fuel'] = 'water';
-}
+    const fuelRng = Math.random();
+    if (fuelRng < 0.25) {
+        ISSUES['fuel'] = 'water';
+    }
 
-// Initialize S variables based on ISSUES
-S.oilLevel = ISSUES['oil'] ? (15 + Math.random() * 18) : (62 + Math.random() * 32); // Low if issue, else normal
-S.coolantLevel = ISSUES['coolant'] ? (18 + Math.random() * 20) : (65 + Math.random() * 28); // Low if issue, else normal
-S.fuel = ISSUES['leaks'] ? (12 + Math.random() * 18) : (55 + Math.random() * 40); // Lower if leaks, else normal
-S.battVolt = ISSUES['battery'] ? (22.0 + Math.random() * 1.6) : (24.8 + Math.random() * 0.8); // Low if issue, else normal
-S.airFilterBlocked = ISSUES['airfilter'];
-S.radiatorBlocked = ISSUES['radiator'];
-S.fuelLeakRate = ISSUES['leaks'] ? 5 + Math.random() * 5 : 0; // 5-10 L/h if leak issue
+    // Initialize S variables based on ISSUES
+    S.oilLevel = ISSUES['oil'] ? (15 + Math.random() * 18) : (62 + Math.random() * 32); // Low if issue, else normal
+    S.coolantLevel = ISSUES['coolant'] ? (18 + Math.random() * 20) : (65 + Math.random() * 28); // Low if issue, else normal
+    S.fuel = ISSUES['leaks'] ? (12 + Math.random() * 18) : (55 + Math.random() * 40); // Lower if leaks, else normal
+    S.battVolt = ISSUES['battery'] ? (22.0 + Math.random() * 1.6) : (24.8 + Math.random() * 0.8); // Low if issue, else normal
+    S.airFilterBlocked = ISSUES['airfilter'] || false;
+    S.radiatorBlocked = ISSUES['radiator'] || false;
+    S.fuelLeakRate = ISSUES['leaks'] ? 5 + Math.random() * 5 : 0; // 5-10 L/h if leak issue
+    S.genBreaker = !ISSUES['breakers']; // El breaker abre si hay un issue
+} else {
+    S.oilLevel = 80;
+    S.coolantLevel = 80;
+    S.fuel = 85;
+    S.battVolt = 25.2;
+    S.airFilterBlocked = false;
+    S.radiatorBlocked = false;
+    S.fuelLeakRate = 0;
+    S.genBreaker = true;
+}
 
 const NOMINAL_V = 277;
 const NOMINAL_HZ = 60.0;
@@ -138,11 +159,41 @@ const STEPS = [
 function init() {
   document.body.classList.toggle('exam-mode', S.examMode);
   document.getElementById('exam-mode-switch').classList.toggle('on', S.examMode);
+
+  if (!forceChecklist) {
+      STEPS.forEach(st => {
+          if (st.key !== 'loto') DONE[st.key] = 'ok';
+      });
+  }
+
   renderSteps();
   document.getElementById('d-hours').textContent = S.engineHours.toFixed(1);
   document.getElementById('d-batt').textContent = S.battVolt.toFixed(1); // Initial battery voltage
+  
+  updateProgress();
   updateDisplayPage();
   setupRadio();
+  
+  if (!forceChecklist) {
+      document.getElementById('grid-sw').classList.toggle('on', true);
+      ['off','manual','auto'].forEach(k => {
+        document.getElementById('mb-'+k).classList.toggle('on', k==='auto');
+      });
+      document.getElementById('cl-warn').classList.remove('show');
+      elog('Sistema iniciado en modo AUT. Red eléctrica presente.', 'ok');
+      updateGrid();
+  }
+  
+  // Inicializar estado de botones ATS
+  if (document.getElementById('gen-breaker-sw')) {
+      document.getElementById('gen-breaker-sw').classList.toggle('on', S.genBreaker);
+      document.getElementById('ats-m-auto').classList.toggle('on', S.atsMode === 'auto');
+      document.getElementById('ats-m-manual').classList.toggle('on', S.atsMode === 'manual');
+      document.getElementById('ats-p-1').classList.toggle('on', S.atsPos === 1);
+      document.getElementById('ats-p-0').classList.toggle('on', S.atsPos === 0);
+      document.getElementById('ats-p-2').classList.toggle('on', S.atsPos === 2);
+      updateAtsText();
+  }
   
   // Manejador de clics en el panel desenergizado (para Verificación de Energía Cero LOTO)
   document.getElementById('panel-deenergized').addEventListener('click', () => {
@@ -1229,7 +1280,7 @@ function buildBreakers() {
                     <div class="breaker-label">BREAKER PRINCIPAL (400A)</div>
                     <div style="font-size:0.7rem;color:var(--dim)">Protección del Alternador</div>
                 </div>
-                <div class="breaker-switch ${hasIssue ? 'off' : 'on'}" onclick="this.classList.toggle('on'); this.classList.toggle('off');">
+                <div class="breaker-switch ${S.genBreaker ? 'on' : 'off'}" onclick="toggleGenBreaker(); this.classList.toggle('on', S.genBreaker); this.classList.toggle('off', !S.genBreaker);">
                     <div class="breaker-lever"></div>
                 </div>
             </div>
@@ -1254,7 +1305,7 @@ function buildBreakers() {
     </div>
     <div class="modal-footer">
     ${hasIssue ?
-      `<button class="btn-primary btn-amber" onclick="completeZone('breakers',true)" style="flex:1">⚡ Rearmar Breaker Principal</button>` :
+      `<button class="btn-primary btn-amber" onclick="completeZone('breakers',true); if(!S.genBreaker) toggleGenBreaker();" style="flex:1">⚡ Rearmar Breaker Principal</button>` :
       `<button class="btn-primary btn-green" onclick="completeZone('breakers')" style="flex:1">✅ Breakers OK — Continuar</button>`
     }
     <button class="btn-primary" onclick="closeModal()" style="flex:0.4;background:var(--bg2);border:1px solid var(--border2);color:var(--dim)">Cancelar</button>
@@ -1767,8 +1818,9 @@ function completeZone(key, hasIssue) {
 }
 
 function updateProgress() {
-  const total = STEPS.length;
-  const done = Object.keys(DONE).length;
+  const requiredSteps = STEPS.filter(s => s.key !== 'loto');
+  const total = requiredSteps.length;
+  const done = requiredSteps.filter(s => DONE[s.key]).length;
   const pct = Math.round(done/total*100);
 
   // Header chip
@@ -1833,6 +1885,69 @@ function goTab(id) {
 //  PANEL Y DINAMICA
 // ══════════════════════════════════════════════
 
+// NUEVO: Funciones del ATS
+function setAtsMode(mode) {
+  S.atsMode = mode;
+  document.getElementById('ats-m-auto').classList.toggle('on', mode === 'auto');
+  document.getElementById('ats-m-manual').classList.toggle('on', mode === 'manual');
+  elog('ATS: Modo cambiado a ' + mode.toUpperCase(), 'info');
+  updateAtsText();
+}
+
+function setAtsPos(pos) {
+  if (S.atsMode === 'auto') {
+    elog('ATS: No se puede cambiar posición en modo AUTO', 'warn');
+    return;
+  }
+  changeAtsPos(pos);
+}
+
+function changeAtsPos(pos) {
+  if (S.atsPos === pos) return;
+  S.atsPos = pos;
+  document.getElementById('ats-p-1').classList.toggle('on', pos === 1);
+  document.getElementById('ats-p-0').classList.toggle('on', pos === 0);
+  document.getElementById('ats-p-2').classList.toggle('on', pos === 2);
+  
+  let posName = pos === 1 ? 'RED' : pos === 2 ? 'GENERADOR' : 'VACÍO';
+  elog(`ATS: Transferencia a posición ${pos} (${posName})`, 'warn');
+  
+  if (pos === 2 && S.genBreaker && S.engine && !S.fault) {
+     S.actualV -= (S.loadPct * 0.4);
+     S.actualHz -= (S.loadPct * 0.05);
+  }
+  
+  updateAtsText();
+  updateGrid();
+}
+
+function toggleGenBreaker() {
+  S.genBreaker = !S.genBreaker;
+  const sw = document.getElementById('gen-breaker-sw');
+  if(sw) sw.classList.toggle('on', S.genBreaker);
+  elog(`Breaker Principal: ${S.genBreaker ? 'CERRADO (ON)' : 'ABIERTO (OFF)'}`, S.genBreaker ? 'ok' : 'warn');
+  
+  if (S.genBreaker && S.atsPos === 2 && S.engine && !S.fault) {
+     S.actualV -= (S.loadPct * 0.4);
+     S.actualHz -= (S.loadPct * 0.05);
+  }
+  updateAtsText();
+  updateGrid();
+  updateLamps();
+}
+
+function updateAtsText() {
+  const el = document.getElementById('ats-status-text');
+  if (!el) return;
+  let txt = `Modo: ${S.atsMode.toUpperCase()}. `;
+  if (S.atsPos === 1) txt += 'Carga alimentada por RED ELÉCTRICA.';
+  else if (S.atsPos === 2) {
+     if (S.genBreaker) txt += 'Carga alimentada por GENERADOR.';
+     else txt += 'Posición GEN seleccionada, pero BREAKER está ABIERTO.';
+  }
+  else txt += 'Posición VACÍO (0). Carga desenergizada.';
+  el.textContent = txt;
+}
 
 function navigateDisplay(dir) {
   if (S.estop) return; // No permitir navegación con E-Stop activo
@@ -1910,17 +2025,22 @@ function setMode(m) {
   document.getElementById('l-auto').className = 'lamp-dot'+(m==='auto'?' b':'');
   updateManualBtns();
 
+  // NUEVO: Cancelar temporizadores automáticos si abandonamos el modo AUTO
+  if (m !== 'auto') {
+    if (S.autoStartT) { clearTimeout(S.autoStartT); S.autoStartT = null; }
+    if (S.autoStopT) { clearTimeout(S.autoStopT); S.autoStopT = null; }
+  }
+
   if (m==='auto') {
     elog('Modo AUTO activado — Monitoreando red eléctrica','info');
     checkAuto();
   } else if (m==='off') {
-    clearTimeout(S.autoStartT); clearTimeout(S.autoStopT);
-    S.autoStartT=S.autoStopT=null;
     if (S.engine) manualStop();
     elog('Modo PARAR seleccionado','warn');
   } else {
     elog('Modo MANUAL activado','info');
   }
+  updateLamps();
 }
 
 function updateManualBtns() {
@@ -2014,6 +2134,17 @@ function startEngine() {
       updateManualBtns();
       startValues();
       updateGrid();
+      
+      // ATS Transfer Automático
+      if (S.mode === 'auto' && !S.grid) {
+          elog('AUTO: Esperando estabilización del generador (4s)...', 'info');
+          setTimeout(() => {
+              if (S.engine && !S.fault) {
+                  if (S.atsMode === 'auto') changeAtsPos(2);
+                  else elog('ATS en MANUAL. Requiere transferencia manual a GENERADOR.', 'warn');
+              }
+          }, 4000);
+      }
     } else {
       elog(`Intento de arranque fallido (${S.crankingAttempts}/${maxCrankingAttempts}). Reintentando...`, 'warn');
       if (S.crankingAttempts < maxCrankingAttempts) {
@@ -2241,15 +2372,13 @@ function updateVals() {
   
   let dispV = S.actualV + noiseV;
   let dispHz = S.actualHz + noiseHz;
-  let dispKw = (S.loadPct / 100) * NOMINAL_KW + (Math.random() * 2); // Base kW
-  if (S.airFilterBlocked && !DONE['airfilter']) { // Air filter issue reduces max power
-    dispKw = Math.min(dispKw, NOMINAL_KW * 0.7); // Max 70% power
+  let dispKw = 0;
+  if (S.atsPos === 2 && S.genBreaker && S.engine && !S.fault) {
+    dispKw = (S.loadPct / 100) * NOMINAL_KW + (Math.random() * 2);
+    if (S.airFilterBlocked && !DONE['airfilter']) dispKw = Math.min(dispKw, NOMINAL_KW * 0.7);
   }
   let dispV_LL = dispV * Math.sqrt(3);
 
-  if (S.grid && S.mode !== 'manual') {
-     dispKw = 0; // La carga la lleva CFE
-  }
 
   const currentRpm = dispHz * 30;
   document.getElementById('run-rpm').textContent = currentRpm.toFixed(0) + ' RPM';
@@ -2321,6 +2450,9 @@ function updateVals() {
     if (S.overloadTimer >= 1.0 && S.overloadTimer < 1.2) elog('⚠️ ADVERTENCIA: Operación en Sobrecarga', 'warn');
     if (S.overloadTimer > 8.0) { // Disparo a los 8 segundos
       S.fault = true;
+      S.genBreaker = false; // El breaker físico se dispara/abre
+      const breakerSw = document.getElementById('gen-breaker-sw');
+      if (breakerSw) breakerSw.classList.remove('on');
       setAlarm('DISPARO POR SOBRECORRIENTE (ANSI 51)', 'fault');
       elog('🚨 FALLA CRÍTICA: Disparo por sobrecarga térmica del alternador', 'err');
       stopEngine(); // En un caso real el contactor abre, aquí lo apagamos por protección
@@ -2371,7 +2503,7 @@ function updateLamps() {
   document.getElementById('l-fault').className = 'lamp-dot'+(S.fault || S.highTempWarning || S.lowCoolantWarning || S.maintenanceAlarmTriggered ? ' r' : ''); // More conditions for fault lamp
   document.getElementById('l-mains').className = 'lamp-dot'+(S.grid?' g':'');
   // Ajuste en indicador Gen Activo considerando carga
-  const enCarga = S.engine && (!S.grid || S.mode==='manual') && !S.fault;
+  const enCarga = S.engine && S.atsPos === 2 && S.genBreaker && !S.fault;
   document.getElementById('l-gen').className   = 'lamp-dot'+(enCarga?' g':'');
   document.getElementById('l-auto').className  = 'lamp-dot'+(S.mode==='auto'?' b':'');
 }
@@ -2392,9 +2524,13 @@ function toggleGrid() {
       elog('AUTO: Red presente — iniciando cuenta regresiva de transferencia (30s)','info');
       S.autoStopT = setTimeout(()=>{
         elog('AUTO: Transfiriendo carga a la red eléctrica...','info');
+        if (S.atsMode === 'auto') changeAtsPos(1);
+        else elog('ATS en MANUAL. Requiere transferencia manual a RED.', 'warn');
         updateGrid();
         setTimeout(()=>{ if(S.engine){elog('AUTO: Parando generador post-transferencia','ok');stopEngine();} },1500);
       }, 30000);
+    } else if (!S.engine && S.atsMode === 'auto') {
+        changeAtsPos(1); // Regresar sin delay si el generador ya estaba apagado
     }
   } else {
     elog('🔴 ¡RED ELÉCTRICA PERDIDA! — Fallo de suministro detectado','err');
@@ -2402,16 +2538,14 @@ function toggleGrid() {
     document.getElementById('chip-grid').className='stat-chip chip-err';
     S.gridLostAt=Date.now();
     clearTimeout(S.autoStopT); S.autoStopT=null;
+    if (S.atsMode === 'auto') {
+        changeAtsPos(0); // Abrir red para aislar carga temporalmente
+    }
     if (S.mode==='auto') {
       elog('AUTO: Confirmando falla de red... espera 10s','warn');
       S.autoStartT = setTimeout(()=>{
         elog('🚨 AUTO: Arranque de emergencia — falla de red confirmada','err');
-        document.getElementById('gr-tr').textContent='TRANSFIRIENDO A GEN...';
-        document.getElementById('gr-tr').className='gr-v a';
         startEngine();
-        setTimeout(()=>{
-          if(S.engine){document.getElementById('gr-tr').textContent='EN GENERADOR';document.getElementById('gr-tr').className='gr-v a';}
-        },4200);
       }, 10000);
     }
   }
@@ -2426,10 +2560,17 @@ function updateGrid() {
   document.getElementById('gr-f').textContent  = g?'60.0 Hz':'0.0 Hz';
 
   const tr = document.getElementById('gr-tr');
-  if (g && (!S.engine || S.mode==='auto')) { tr.textContent='EN RED ELÉCTRICA'; tr.className='gr-v g'; }
-  else if (!g && S.engine && !S.fault) { tr.textContent='EN GENERADOR';     tr.className='gr-v a'; }
-  else if (S.engine && S.mode==='manual') { tr.textContent='EN GENERADOR (MANUAL)'; tr.className='gr-v a'; }
-  else if (!g && !S.engine){ tr.textContent='SIN ALIMENTACIÓN'; tr.className='gr-v r'; }
+  if (S.atsPos === 1) { 
+     tr.textContent = 'EN RED ELÉCTRICA'; tr.className = 'gr-v g'; 
+  } else if (S.atsPos === 2) {
+     if (S.genBreaker && S.engine && !S.fault) {
+         tr.textContent = 'EN GENERADOR'; tr.className = 'gr-v a';
+     } else {
+         tr.textContent = 'EN GENERADOR (SIN ENERGÍA)'; tr.className = 'gr-v r';
+     }
+  } else {
+     tr.textContent = 'POSICIÓN 0 (VACÍO)'; tr.className = 'gr-v r';
+  }
 
   // Actualizar la página de red del display principal si está visible
   updateGridPageDisplay();
@@ -2444,8 +2585,35 @@ setInterval(()=>{
 
 function checkAuto() {
   if (S.mode!=='auto' || S.fault) return; // Don't check auto if there's a fault
-  if (!S.grid&&!S.engine&&!S.starting) {
-    elog('AUTO: Red ausente al activar modo AUTO — monitoreando','warn');
+  
+  if (S.grid) {
+    // RED PRESENTE
+    if (S.engine && !S.stopping && !S.autoStopT) {
+      elog('AUTO: Red eléctrica presente. Iniciando retorno y paro...', 'info');
+      S.autoStopT = setTimeout(() => {
+        elog('AUTO: Transfiriendo carga a la red eléctrica...', 'info');
+        if (S.atsMode === 'auto') changeAtsPos(1);
+        else elog('ATS en MANUAL. Requiere transferencia manual a RED.', 'warn');
+        updateGrid();
+        setTimeout(() => { if (S.engine) { elog('AUTO: Parando generador post-transferencia', 'ok'); stopEngine(); } }, 1500);
+      }, 3000); // Retorno rápido si se cambia a AUTO manualmente con red presente
+    } else if (!S.engine && S.atsMode === 'auto' && S.atsPos !== 1) {
+      changeAtsPos(1); // Regresar ATS a red si el generador ya estaba apagado
+    }
+  } else {
+    // RED AUSENTE
+    if (!S.engine && !S.starting && !S.stopping && !S.autoStartT) {
+      elog('AUTO: Red ausente al activar modo AUTO — iniciando arranque', 'warn');
+      S.autoStartT = setTimeout(() => {
+        elog('🚨 AUTO: Arranque por ausencia de red', 'err');
+        startEngine();
+      }, 3000);
+    } else if (S.engine && !S.starting && !S.fault) {
+      if (S.atsMode === 'auto' && S.atsPos !== 2) {
+         elog('AUTO: Generador en marcha sin red. Transfiriendo carga...', 'info');
+         changeAtsPos(2);
+      }
+    }
   }
 }
 
@@ -2464,6 +2632,15 @@ function elog(msg, cls) {
 // ══════════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════════
+
+function resetSimulator() {
+    if (confirm('¿Desea reiniciar el simulador en modo de Práctica de Checklist (con fallas aleatorias)?\n\n[Aceptar] = Modo Práctica\n[Cancelar] = Estado Listo (Auto/Red OK)')) {
+        window.location.href = window.location.pathname + '?checklist=1';
+    } else {
+        window.location.href = window.location.pathname;
+    }
+}
+
 init();
 if (!S.examMode) {
   setTimeout(()=>{

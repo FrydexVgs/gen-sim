@@ -826,6 +826,8 @@ body {
 .gr-v.r { color:var(--red); }
 .gr-v.a { color:var(--amber); }
 
+.ats-row { display:flex; align-items:center; justify-content:space-between; }
+.ats-lbl { font-size:0.75rem; font-weight:700; color:var(--dim); letter-spacing: 0.5px; }
 .auto-info { font-size:0.75rem; color:var(--dim); line-height:1.6; padding:10px; background:var(--bg); border-radius:8px; border:1px solid var(--border); }
 .auto-info strong { color:var(--cyan); }
 
